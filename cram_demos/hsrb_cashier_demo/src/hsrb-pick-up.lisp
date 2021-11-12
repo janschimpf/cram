@@ -97,22 +97,23 @@ to grasp the object, if that fails the next position in list will be tried"
                  (reverse tmp-list)))
              ;;the basic list that goes through the mapcar
              (list
-              (list (cl-transforms:make-pose
-                     (cl-transforms:make-3d-vector 0.40  0.07769999504089356d0 0)
-                     (cl-transforms:euler->quaternion :az pi))
-                    :front)
-              (list (cl-transforms:make-pose
-                     (cl-transforms:make-3d-vector -0.40  -0.07769999504089356d0 0)
-                     (cl-transforms:make-identity-rotation))
-                    :back)
-              (list (cl-transforms:make-pose
-                     (cl-transforms:make-3d-vector -0.07769999504089356d0 0.40 0)
-                     (cl-transforms:euler->quaternion :az (- (/ pi 2))))
-                    :left-side)
+              ;;(list (cl-transforms:make-pose
+              ;;       (cl-transforms:make-3d-vector 0.40  0.07769999504089356d0 0)
+              ;;       (cl-transforms:euler->quaternion :az pi))
+              ;;      :front)
+              ;;(list (cl-transforms:make-pose
+              ;;       (cl-transforms:make-3d-vector -0.40  -0.07769999504089356d0 0)
+              ;;       (cl-transforms:make-identity-rotation))
+              ;;      :back)
+              ;;(list (cl-transforms:make-pose
+              ;;       (cl-transforms:make-3d-vector -0.07769999504089356d0 0.40 0)
+              ;;       (cl-transforms:euler->quaternion :az (- (/ pi 2))))
+              ;;      :left-side)
               (list (cl-transforms:make-pose
                      (cl-transforms:make-3d-vector +0.07769999504089356d0 -0.4 0)
                      (cl-transforms:euler->quaternion :az  (/ pi 2)))
-                    :right-side)))))
+                    :right-side)
+              ))))
          ;; sets object-type to prolog variable
          (?object-type object-type))
 
@@ -177,14 +178,30 @@ to grasp the object, if that fails the next position in list will be tried"
 
 
 (defun place-object()
-  (let ((?putting (cl-transforms-stamped:make-pose-stamped
+  (let ((?placing (cl-transforms-stamped:make-pose-stamped
                    "map" 0
-                   (cl-transforms:make-3d-vector -1.5 1.3 0.8)
+                   (cl-transforms:make-3d-vector -1.5 0.3 0.8)
                    (cl-transforms:make-quaternion 0.0d0 0.0d0 0.7071067690849304d0 0.7071067690849304d0)))
-    (?object-desig object-design))
+        (?object-desig object-design))
+    (move-place-front ?placing)
   "place the object on a predefined place on the counter"
         (exe:perform (desig:an action
                                (type placing)
                                (arm :left)      
                                (object ?object-desig)
-                               (target (desig:a location (pose ?putting)))))))
+                               (target (desig:a location (pose ?placing)))))))
+
+(defun move-place-front (stamped-pose)
+  (let ((?nav-pose (cl-transforms-stamped:make-pose-stamped
+                    "map" 0
+                    (cl-transforms-stamped:make-3d-vector
+                     (+ 1.5 (first (cram-tf:3d-vector->list
+                                (cl-tf:origin stamped-pose))))
+                     (+ (second (cram-tf:3d-vector->list
+                                 (cl-tf:origin stamped-pose)))
+                        0.08)
+                    0)
+                    (cl-transforms:euler->quaternion :az pi))))
+    (desig:an action
+                     (type going)
+                     (target (desig:a location (pose ?nav-pose))))))
