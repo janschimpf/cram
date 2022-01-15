@@ -300,4 +300,139 @@
                                (:right-put-poses ?right-put-poses)
                                (:left-retract-poses ?left-retract-poses)
                                (:right-retract-poses ?right-retract-poses))
-                      ?resolved-action-designator)))
+                      ?resolved-action-designator))
+
+
+
+
+
+  
+  (<- (desig:action-grounding ?action-designator (hsrb-reach ?resolved-action-designator))
+    (spec:property ?action-designator (:type :hsrb-reach))
+    ;; find in which hand the object is
+    
+    ;; find in which hand the object is
+    (-> (spec:property ?action-designator (:arm ?arm))
+        (-> (spec:property ?action-designator (:object ?object-designator))
+            (once (or (cpoe:object-in-hand ?object-designator ?arm)
+                      (format "WARNING: Wanted to place an object ~a with arm ~a, ~
+                               but it's not in the arm.~%"
+                              ?object-designator ?arm)))
+            (cpoe:object-in-hand ?object-designator ?arm))
+        (-> (spec:property ?action-designator (:object ?object-designator))
+            (once (or (cpoe:object-in-hand ?object-designator ?arm)
+                      (format "WARNING: Wanted to place an object ~a ~
+                               but it's not in any of the hands.~%"
+                              ?object-designator)))
+            (cpoe:object-in-hand ?object-designator ?arm)))
+
+    ;;; infer missing information
+    (desig:current-designator ?object-designator ?current-object-designator)
+    (spec:property ?current-object-designator (:type ?object-type))
+    (spec:property ?current-object-designator (:name ?object-name))
+    (lisp-fun man-int:get-action-gripper-opening ?object-type ?gripper-opening)
+
+    ;; take object-pose from action-designator :target otherwise from object-designator pose
+    (-> (spec:property ?action-designator (:target ?location-designator))
+        (and (desig:current-designator ?location-designator ?current-loc-desig)
+             ;; if the location designator has ATTACHMENTS property,
+             ;; split it into a list of locations with ATTACHMENT property
+             (-> (desig:desig-prop ?current-loc-desig (:attachments ?_))
+                 (and (lisp-fun split-attachments-desig ?current-loc-desig
+                                ?list-of-current-loc-desig-split)
+                      (member ?current-location-designator ?list-of-current-loc-desig-split))
+                 (equal ?current-location-designator ?current-loc-desig))
+             (desig:designator-groundings ?current-location-designator ?poses)
+             (member ?target-object-pose ?poses)
+             (lisp-fun pose->transform-stamped-in-base ?target-object-pose ?object-name
+                       ?target-object-transform))
+        (and (lisp-fun man-int:get-object-old-transform ?current-object-designator
+                       ?target-object-transform)
+             (lisp-fun man-int:get-object-old-pose ?current-object-designator
+                       ?target-object-pose)
+             (desig:designator :location ((:pose ?target-object-pose))
+                               ?current-location-designator)))
+
+    ;; placing happens on/in an object
+    (once (or (desig:desig-prop ?current-location-designator
+                                (:on ?other-object-desig))
+              (desig:desig-prop ?current-location-designator
+                                (:in ?other-object-desig))
+              (equal ?other-object-desig NIL)))
+    (desig:current-designator ?other-object-desig ?other-object-designator)
+    ;; and that other object can be a robot or not
+    (-> (man-int:object-is-a-robot ?other-object-designator)
+        (equal ?other-object-is-a-robot T)
+        (equal ?other-object-is-a-robot NIL))
+    ;; and the placement can have a specific attachment or not
+    (once (or (desig:desig-prop ?current-location-designator
+                                (:attachment ?placement-location-name))
+              (equal ?placement-location-name NIL)))
+    ;; get the type of the placement location, because the trajectory
+    ;; might be different depending on the location type
+    (once (or (spec:property ?other-object-designator (:type ?location-type))
+              (equal ?location-type NIL)))
+    ;; infer the grasp type
+    (once (or (spec:property ?action-designator (:grasp ?grasp))
+              (cpoe:object-in-hand ?object-designator ?arm ?grasp)))
+
+    ;; calculate trajectory
+    (equal ?objects (?current-object-designator
+                     ?other-object-designator
+                     ?placement-location-name))
+    (-> (equal ?arm :left)
+        (and (lisp-fun man-int:get-action-trajectory :placing
+                       ?arm ?grasp ?location-type ?objects
+                       :target-object-transform-in-base ?target-object-transform
+                       ?left-trajectory)
+             (lisp-fun man-int:get-traj-poses-by-label ?left-trajectory :reaching
+                       ?left-reach-poses)
+             (lisp-fun man-int:get-traj-poses-by-label ?left-trajectory :putting
+                       ?left-put-poses)
+             (lisp-fun man-int:get-traj-poses-by-label ?left-trajectory :retracting
+                       ?left-retract-poses))
+        (and (equal ?left-reach-poses NIL)
+             (equal ?left-put-poses NIL)
+             (equal ?left-retract-poses NIL)))
+    (-> (equal ?arm :right)
+        (and (lisp-fun man-int:get-action-trajectory :placing
+                       ?arm ?grasp ?location-type ?objects
+                       :target-object-transform-in-base ?target-object-transform
+                       ?right-trajectory)
+             (lisp-fun man-int:get-traj-poses-by-label ?right-trajectory :reaching
+                       ?right-reach-poses)
+             (lisp-fun man-int:get-traj-poses-by-label ?right-trajectory :putting
+                       ?right-put-poses)
+             (lisp-fun man-int:get-traj-poses-by-label ?right-trajectory :retracting
+                       ?right-retract-poses))
+        (and (equal ?right-reach-poses NIL)
+             (equal ?right-put-poses NIL)
+             (equal ?right-retract-poses NIL)))
+    (once (or (lisp-pred identity ?left-trajectory)
+              (lisp-pred identity ?right-trajectory)))
+
+    (-> (lisp-pred identity ?left-put-poses)
+        (equal ?left-put-poses (?look-pose . ?_))
+        (equal ?right-put-poses (?look-pose . ?_)))
+
+    ;; put together resulting designator
+    (desig:designator :action ((:type :hsrb-reach)
+                               (:object ?current-object-designator)
+                               (:target ?current-location-designator)
+                               (:other-object ?other-object-designator)
+                               (:other-object-is-a-robot ?other-object-is-a-robot)
+                               (:arm ?arm)
+                               (:grasp ?grasp)
+                               (:location-type ?location-type)
+                               (:gripper-opening ?gripper-opening)
+                               (:attachment-type ?placement-location-name)
+                               (:look-pose ?look-pose)
+                               (:left-reach-poses ?left-reach-poses)
+                               (:right-reach-poses ?right-reach-poses)
+                               (:left-put-poses ?left-put-poses)
+                               (:right-put-poses ?right-put-poses)
+                               (:left-retract-poses ?left-retract-poses)
+                               (:right-retract-poses ?right-retract-poses))
+                      ?resolved-action-designator))
+
+  )

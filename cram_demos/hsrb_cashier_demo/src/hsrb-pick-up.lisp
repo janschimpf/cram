@@ -171,37 +171,172 @@ to grasp the object, if that fails the next position in list will be tried"
                                  (type picking-up)
                                  (arm :left)
                                  (grasp ?grasp)
-                                 (object ?object-desig)))))
-      (place-object))))
+                                 (object ?object-desig)))
+          
+          ;;(place-object ?object-desig)
+          (print ?grasp))))))
 
 
 
 
-(defun place-object()
-  (let ((?placing (cl-transforms-stamped:make-pose-stamped
-                   "map" 0
-                   (cl-transforms:make-3d-vector -1.5 0.3 0.8)
-                   (cl-transforms:make-quaternion 0.0d0 0.0d0 0.7071067690849304d0 0.7071067690849304d0)))
-        (?object-desig object-design))
-    (move-place-front ?placing)
+(defun place-object(object-desig turn 3d-vector)
+ ;; (let ((3d-vector (cl-transforms:make-3d-vector -1.5 -0.1 0.75)))
+  (let (
+        (place-vector 3d-vector)
+    (?object-desig object-desig)) 
+    (let ((?placing
+                (cl-transforms-stamped:make-pose-stamped
+                "map" 0
+                place-vector
+                (if turn
+                (cl-transforms:q*    
+                (cl-transforms:make-quaternion 0.0d0 0.0d0 0.7071067690849304d0 0.7071067690849304d0)
+                (cl-transforms:euler->quaternion :ax 0 :ay 0 :az  (-(/ pi 2))))
+                (cl-transforms:make-quaternion 0.0d0 0.0d0 0.7071067690849304d0 0.7071067690849304d0)))))
+
   "place the object on a predefined place on the counter"
         (exe:perform (desig:an action
                                (type placing)
                                (arm :left)      
                                (object ?object-desig)
-                               (target (desig:a location (pose ?placing)))))))
+                               (target (desig:a location (pose ?placing))))))))
 
-(defun move-place-front (stamped-pose)
-  (let ((?nav-pose (cl-transforms-stamped:make-pose-stamped
+(defun move-place-right (stamped-pose)
+  (let ((nav-pose (cl-transforms-stamped:make-pose-stamped
                     "map" 0
                     (cl-transforms-stamped:make-3d-vector
-                     (+ 1.5 (first (cram-tf:3d-vector->list
-                                (cl-tf:origin stamped-pose))))
+                     (+ (first (cram-tf:3d-vector->list
+                                stamped-pose))
+                        0.8)
                      (+ (second (cram-tf:3d-vector->list
-                                 (cl-tf:origin stamped-pose)))
+                                 stamped-pose))
                         0.08)
                     0)
                     (cl-transforms:euler->quaternion :az pi))))
-    (desig:an action
-                     (type going)
-                     (target (desig:a location (pose ?nav-pose))))))
+   nav-pose))
+
+(defun move-place-left (3d-vector)
+    (let ((nav-pose (cl-transforms-stamped:make-pose-stamped
+                    "map" 0
+                    (cl-transforms-stamped:make-3d-vector
+                     (+ (first (cram-tf:3d-vector->list
+                                3d-vector))
+                        0.08)
+                     (- (second (cram-tf:3d-vector->list
+                                 3d-vector))
+                        0.8)
+                    0)
+                    (cl-transforms:euler->quaternion :az (/ pi 2)))))
+    nav-pose))
+
+
+(defun create-pose-with-3d-vector (3d-vector)
+      (let ((nav-pose (cl-transforms-stamped:make-pose-stamped
+                    "map" 0
+                    (cl-transforms-stamped:make-3d-vector
+                     (first (cram-tf:3d-vector->list
+                                3d-vector))
+                     (second (cram-tf:3d-vector->list
+                                 3d-vector))
+                    (third (cram-tf:3d-vector->list
+                                 3d-vector)))
+                    (cl-transforms:euler->quaternion :az (/ pi 2)))))
+    nav-pose))
+  
+
+
+
+(defun create-offset-list ()
+  (loop for a from -0.05 to 0.05 by 0.01 collect a))
+
+(defun create-3d-vector-list (3d-vector)
+  ;;(mapcar (lambda (a)
+  ;;          (cl-transforms-stamped:make-pose-stamped "map" 0 a
+  ;;                                                   (cl-transforms:euler->quaternion :az (/ pi 2))))
+          (mapcar (lambda (a)
+  (cl-transforms-stamped:make-3d-vector
+    (first (cram-tf:3d-vector->list 3d-vector))
+     (+ (second (cram-tf:3d-vector->list 3d-vector)) a)
+     0)) (create-offset-list)))
+;;)
+
+(defun move (nav-pose 3d-vector)
+    (cpl:with-retry-counters ((going-retry 10))
+      ;; TODO if it takes to long to go through the whole list implement a stop
+      (cpl:with-failure-handling
+          (((or common-fail:low-level-failure
+                cl::simple-error
+                cl::simple-type-error) (e)
+             (roslisp:ros-warn (grasp-object fail)
+                               "~%Failed with given msgs ~a~%" e)
+             ;; get rid of head of nav-pose by setting only the rest
+             (unless (eq nil (cdr nav-pose))
+               (setf nav-pose (cdr nav-pose))
+
+               (cpl:do-retry going-retry
+                 (roslisp:ros-warn (grasp-object fail)
+                                   "~%Failed with given msgs ~a~%" e)
+                 (cpl:retry)))
+             (roslisp:ros-warn (grasp-object fail)
+                               "~%No more retries~%")))
+        (let ((?nav-pose (demo::move-place-right (car nav-pose)))
+              (?object-pose (demo::create-pose-with-3d-vector 3d-vector)))
+          (exe:perform (desig:an action
+                       (type going)
+                       (target (desig:a location (pose ?nav-pose)))))
+          
+          (exe:perform (desig:an action
+                       (type looking)
+                       (target (desig:a location (pose ?object-pose)))))
+          (let ((?object-desig
+                 (exe:perform (desig:a motion
+                                       (type detecting)
+                                       (object (desig:an object
+                                                         (type :pringles)))))))
+              (exe:perform (desig:an action
+                                (type picking-up)
+                                (arm :left)
+                                (grasp :right-side)
+                                (object ?object-desig)))
+            ?object-desig)))))
+
+
+(defun test-reaching  (object-desig)
+  (let ((?object-desig object-desig)
+        (?test (cl-transforms-stamped:make-pose-stamped
+                "map" 0
+                (cl-transforms:make-3d-vector -1.5 -0.1 0.75)
+                (cl-transforms:euler->quaternion :az pi))))
+        ;;(let (
+        ;;(?left-reach-poses (man-int:get-traj-poses-by-label (hsrb-get-traj :left ?object-desig ?test) :reaching)))
+        ;;(let 
+        ;;((?goal `(cpoe:tool-frames-at ?left-reach-poses)))
+    
+    (exe:perform (desig:an action
+                          (type hsrb-reach)
+                          (arm :left)
+                          (object ?object-desig)
+                          (target (desig:a location (pose ?test)))
+    
+    ))))
+
+(defun test-retracting (?left-retract-poses)
+  (let ((?test (cl-transforms-stamped:make-pose-stamped
+                "map" 0
+                (cl-transforms:make-3d-vector -1.5 -0.1 0.75)
+                (cl-transforms:euler->quaternion :az pi)))
+        (?goal `(cpoe:tool-frames-at ?left-retract-poses)))
+    
+    (exe:perform (desig:an action
+                          (type retracting)
+                          (location (desig:a location (pose ?test)))
+                          (left-poses ?left-retract-poses)
+                          (goal ?goal))
+  )))
+
+(defun hsrb-get-traj (?arm object-desig location)
+  (roslisp:ros-warn (traj) "object: ~a" object-desig)
+  (man-int:get-action-trajectory :picking-up
+                       ?arm :right-side location nil)
+  ;;(man-int:get-traj-poses-by-label ?left-trajectory type)
+  )

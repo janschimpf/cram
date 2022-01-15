@@ -327,6 +327,65 @@
              (type detecting)
              (object ?object-designator))))
 
+(defun hsrb-reach (&key
+                ((:object ?object-designator))
+                ((:target ?target-location-designator))
+                ((:other-object ?other-object-designator))
+                other-object-is-a-robot
+                ((:arm ?arm))
+                grasp
+                location-type
+                ((:gripper-opening ?gripper-opening))
+                ((:attachment-type ?placing-location-name))
+                ((:look-pose ?look-pose))
+                ((:left-reach-poses ?left-reach-poses))
+                ((:right-reach-poses ?right-reach-poses))
+                ((:left-put-poses ?left-put-poses))
+                ((:right-put-poses ?right-put-poses))
+                ((:left-retract-poses ?left-retract-poses))
+                ((:right-retract-poses ?right-retract-poses))
+              &allow-other-keys)
+  (declare (type desig:object-designator ?object-designator)
+           (type (or desig:object-designator null) ?other-object-designator)
+           (type keyword ?arm)
+           (type (or null keyword) ?placing-location-name)
+           (type number ?gripper-opening)
+           (type (or null list) ; yes, null is also list, but this is better readable
+                 ?left-reach-poses ?right-reach-poses
+                 ?left-put-poses ?right-put-poses
+                 ?left-retract-poses ?right-retract-poses)
+           (ignore grasp location-type))
+
+    
+           (ignore grasp location-type))
+  (roslisp:ros-info (pick-place place) "Looking")
+  (cpl:with-failure-handling
+      ((common-fail:ptu-low-level-failure (e)
+         (roslisp:ros-warn (pp-plans place)
+                           "Looking-at had a problem: ~a~%Ignoring."
+                           e)
+         (return)))
+    (exe:perform
+     (desig:an action
+               (type looking)
+               (target (desig:a location
+                                (pose ?look-pose))))))
+  (roslisp:ros-info (pick-place place) "Reaching")
+  (cpl:with-failure-handling
+      ((common-fail:manipulation-low-level-failure (e)
+         (roslisp:ros-warn (pp-plans pick-up)
+                           "Manipulation messed up: ~a~%Ignoring."
+                           e)
+         ;; (return)
+         ))
+    (let ((?goal `(cpoe:tool-frames-at ,?left-reach-poses ,?right-reach-poses)))
+      (exe:perform
+       (desig:an action
+                 (type reaching)
+                 (location ?target-location-designator)
+                 (left-poses ?left-reach-poses)
+                 (right-poses ?right-reach-poses)
+                 (goal ?goal))))))
 
 #+the-stuff-below-with-action-phases-is-a-bit-awkward
 (

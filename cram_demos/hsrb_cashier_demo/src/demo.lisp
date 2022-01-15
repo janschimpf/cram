@@ -30,6 +30,26 @@
 
 (in-package :demo)
 
+(defun execute-cashier-demo ()
+  (urdf-proj:with-simulated-robot
+    (let ((3d-vector (cl-transforms:make-3d-vector -1.5 1.3 0.75))
+          (place-vector (cl-transforms:make-3d-vector -1.5 -0.1 0.75)))
+  (spawn-object-on-counter-general 'cylinder-1 :pringles)
+    ;;Failure handling 10 checks
+      (let ((object-desig (demo::move (create-3d-vector-list 3d-vector) 3d-vector))
+            (?place-vector (demo::move-place-right place-vector)))
+      ;;(scan-object)
+            
+       (exe:perform
+       (desig:an action
+          (type going)
+          (target (desig:a location (pose ?place-vector)))))
+        
+      (demo::test-reaching object-desig)
+      ;;(demo::place-object object-desig NIL place-vector)
+      ) )))
+
+
 (defun spawn-pickup-cylinder-table ()
   "Spawn primitive cylinder as :pringles item and try to pick up from table."
   (urdf-proj:with-simulated-robot
@@ -59,3 +79,13 @@
                     :size (cl-transforms:make-3d-vector 0.03 0.03 0.08)
                     :item-type :pringles)
    (pick-up-object 'cylinder-1 :pringles)))
+
+
+
+(defun spawn-object-on-counter-general (name type)
+  "Spawn primitive cylinder as :pringles item and try to pick up from table."
+    (btr:add-object btr:*current-bullet-world* :cylinder-item name
+                    '((-1.5 1.3 0.75) (0 0 1 1))
+                    :mass 0.2
+                    :size (cl-transforms:make-3d-vector 0.03 0.03 0.08)
+                    :item-type type))
