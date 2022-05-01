@@ -1,7 +1,7 @@
 (in-package :cashier)
 
 (defparameter object-list
-  (list 'bottle-1 :bottle (list (list -2 1.3 0.8) (list 0 0 0 1)) :bottom ))
+  (list 'bottle-1 :bottle (list (list -2 1.3 0.8) (list 0 0 0 1)) :left ))
 
 (defun spawn-object-on-counter-general (list)
   (let ((name (first list))

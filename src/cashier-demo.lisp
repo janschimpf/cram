@@ -76,12 +76,8 @@
     (pp-plans::park-arms)
 
     (spawn-object-on-counter-general object-list)
-
-    (print object-list)
+    
     (init-setup)
-    (setf *sides* (change-side-list-to-map (set-sides (first object-list) 0.05 0.05 0.01)))
-   
-    (print *sides*)
     
     (move *look-nav-pose*)
 
@@ -90,18 +86,12 @@
     (move *place-nav-pose*)
 
     (place-object *place-pose* :left)
+    
+    (setf *sides* (change-side-list-to-map (set-sides (first object-list) 0.05 0.05 0.01)))
 
-    (scan (first object-list) (cdr object-list))
+
+    (scan (first object-list) (cdr object-list) *sides*)
     ))
-
-(defun change-side-list-to-map (side-list)
-  (mapcar (lambda (x) (list (first x) (second x))) side-list))
-
-(defun transform-short-cut (pose)
-  (cl-tf2:transform-pose-stamped cram-tf:*transformer*
- :pose (second pose)
- :target-frame "map") 
-  )
   
 
 (defun get-scan-area ()
