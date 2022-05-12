@@ -1,6 +1,12 @@
 (in-package :cashier)
 
 
+(defun get-scan-area ()
+  (cl-transforms-stamped:make-pose-stamped
+   "map" 0.0
+   (cl-transforms:make-3d-vector -2 0.3 0.5)
+   (cl-transforms:make-quaternion 0 0 0 1)))
+
 ;;for changing the relation of the side-pose from the object to the map
 (defun set-sides (object-name object-x object-y object-z)
   (let ((object-vector (cram-tf:3d-vector->list
@@ -9,18 +15,34 @@
         (object-rotation (cl-tf2:orientation
                           (cram-tf::pose-stamped->pose (btr:object-pose object-name))))
        (side-list (list
-                   (list :top (cl-transforms:make-3d-vector 0 0 (/ object-z 2)))
-                   (list :bottom (cl-transforms:make-3d-vector 0 0 (- (/ object-z 2))))
-                   (list :left (cl-transforms:make-3d-vector 0 (/ object-y 2) 0))
-                   (list :right (cl-transforms:make-3d-vector 0 ( -(/ object-y 2)) 0))
-                   (list :front (cl-transforms:make-3d-vector (/ object-x 2) 0 0))
-                   (list :back (cl-transforms:make-3d-vector (- (/ object-x 2)) 0 0)))))
+                   (list :top (cl-transforms:make-3d-vector 0 0 object-z))
+                   (list :bottom (cl-transforms:make-3d-vector 0 0 0))
+                   
+                   (list :left (cl-transforms:make-3d-vector 0 object-y (/ object-z 2)))
+                   (list :right (cl-transforms:make-3d-vector 0 (- object-y ) (/ object-z 2)))
+                   
+                   (list :back (cl-transforms:make-3d-vector object-x 0 (/ object-z 2)))
+                   (list :front (cl-transforms:make-3d-vector (- object-x) 0 (/ object-z 2))))))
     (let ((side (mapcar (lambda (x) (list (first x) (cl-tf:make-pose-stamped
                          "object" 0
                          (second x)
                          object-rotation)))
                         side-list)))
       side)))
+
+
+(defun change-side-list-to-map (side-list)
+  (mapcar (lambda (x) (list (first x) (second x))) side-list))
+
+(defun transform-short-cut (pose)
+  (cl-tf2:transform-pose-stamped cram-tf:*transformer*
+ :pose (second pose)
+ :target-frame "map") 
+  )
+
+
+
+
 
 (defun scan (object-name side side-list)
   (let ((scan-area-vector (first (cram-tf:pose->list
@@ -43,7 +65,7 @@
 
 
 (defun x-y-z-pose-check (scan-area-vector object-vector)
-  (let*  ((scan-x(first scan-area-vector))
+  (let*  ((scan-x (first scan-area-vector))
          (scan-y (second scan-area-vector))
          (scan-z (third scan-area-vector))
          (object-x (first object-vector))
@@ -65,7 +87,7 @@
 (defun side-check (side-to-be scan-vector side-list)
   (let ((side-as-is (shortest-distance (distances-for-side-list side-list scan-vector))))
     (print side-as-is)
-    (print  (car (last side-to-be)))
+    (print  (car side-to-be))
         (if (equal (car (last side-to-be)) (first (first side-as-is)))
             t
             nil
@@ -84,24 +106,13 @@
 (defun distance-between-vectors (scan-vector object-vector)
   (let ((3d-vector-1 scan-vector)
         (3d-vector-2 object-vector))
-    (sqrt (+ (exp (- (first 3d-vector-1) (first 3d-vector-2)))
-             (exp (- (second 3d-vector-1) (second 3d-vector-2)))
-             (exp (- (third 3d-vector-1) (third 3d-vector-2)))))))
+    (sqrt (+ (expt (- (first 3d-vector-1) (first 3d-vector-2)) 2)
+             (expt (- (second 3d-vector-1) (second 3d-vector-2)) 2)
+             (expt (- (third 3d-vector-1) (third 3d-vector-2)) 2)))))
   
 (defun shortest-distance (side-list)
   (sort side-list #'< :key 'second))
 
-
-
-
-(defun change-side-list-to-map (side-list)
-  (mapcar (lambda (x) (list (first x) (second x))) side-list))
-
-(defun transform-short-cut (pose)
-  (cl-tf2:transform-pose-stamped cram-tf:*transformer*
- :pose (second pose)
- :target-frame "map") 
-  )
 
 (defun pose-to-vector-list (pose)
    (cram-tf:3d-vector->list (cl-tf2:origin pose)))
