@@ -116,3 +116,148 @@
 
 (defun pose-to-vector-list (pose)
    (cram-tf:3d-vector->list (cl-tf2:origin pose)))
+
+
+;;returns touples of the side that can be reached via movement
+;;side-list bottom right front
+;;right-turn changes the current right side to be at the bottom
+;;left-turn changes the current left side to be at the bottom
+;;front-turn changes the current back side to be at the bottom
+;;left-adjusted -y change followed by a left turn
+(defun side-changes (side-list)
+  (let* ((bottom (first side-list))
+         (right (second side-list))
+         (front (third side-list)))
+    
+    (list (list "right-turn" right (list
+                                    right
+                                    (opposite-short bottom)
+                                    front))
+          
+          (list "left-turn" (opposite-short right)
+                (list (opposite-short right)
+                      bottom
+                      front))
+          
+          (list "front-turn" (opposite-short front)
+                (list (opposite-short front)
+                      front
+                      bottom))
+          (list "left-adjusted" front
+                (list front
+                      bottom
+                      (opposite-short right))))
+    
+    ))
+
+(defun opposite-short (side)
+  (cdr (car (car (prolog:prolog `(or (opposite ,side ?x)
+                              (opposite ?x ,side)))))))
+
+
+;;returns relative bottom, right and front sides in form of a list.
+(defun locate-sides (object-vector side-list)
+  (let* ((right-list (vector-offset object-vector 0 -0.05 0.05))
+         (front-list (vector-offset object-vector -0.05 0 0.05))
+         (scan-list  (vector-offset object-vector 0 0 -0.05)))
+         
+    (let* ((right (first (first (shortest-distance-between-all-sides right-list object-vector))))
+         (front (first (first (shortest-distance-between-all-sides front-list object-vector))))
+         (bottom (first (first (shortest-distance-between-all-sides scan-list object-vector)))))
+    (list bottom right front)
+    )))
+
+(defun vector-offset (vector x-off y-off z-off)
+  (list (+ (first vector) x-off)
+        (+ (second vector) y-off)
+        (+ (third vector) z-off)
+  ))
+
+(defun shortest-distance-between-all-sides (side-list xyz-list)
+  (shortest-distance (distances-for-side-list side-list xyz-list)))
+
+
+
+  
+
+;; plans the path between the current bottom side and the side that should be scanned next
+;; then returns said path (list were the movement are the elements)
+(defun path-plan-next-side (testinput goal) ;;(current-side next-side side-list object-vector)
+  ;;(let ((sides-after-move (side-changes (locate-sides object-vector side-list))))
+  (let ((get-side-lists testinput))
+    (let ((sorted-sides-list (check-sides-moves get-side-lists goal)))
+    (if (null sorted-sides-list)
+        (path-second-step get-side-lists goal)
+      (list (car sorted-sides-list))
+    ))))
+
+(defun check-sides-moves (sides-list goal)
+  (first (remove nil (remove-duplicates
+                      (mapcar (lambda (x)
+                                (if (equal goal (second x)) x))
+                               sides-list)))))
+
+(defun path-second-step (move-list goal)
+  (let ((new-sides (car (reverse (car move-list)))))
+    (let ((second-move (car (check-sides-moves (side-changes new-sides) goal)))) 
+      (list (car (car move-list)) second-move))))
+
+
+
+;; executes the path plan 
+(defun execute-side-path-plan (plan)
+  (loop for move in plan
+        do (cond
+             ((string-equal "right-turn" move) (right-turn))
+             ((string-equal  "left-turn" move) (left-turn))
+             ((string-equal "front-turn" move) (front-turn))
+             ((string-equal "left-adjusted" move) (left-adjusted))
+             (t (print "illegal move")))))
+
+(defun right-turn ()
+  (print "right"))
+
+(defun left-turn ()
+  (print "left")  
+  )
+
+(defun front-turn ()
+  (print "front")
+  )
+
+(defun left-adjusted ()
+  (print "left-adjusted")
+  )
+
+
+;; iterates over the to scan sides.
+;; first gets the current bottom side, front side and right side
+;; then the path plan the path, execute the path, update object, scan
+(defun scan-all-sides (side-list-to-scan scan-area side-list)
+  )
+
+;;3-sides
+;;list of sides of the 
+
+(defun execute-change-side (object-type arm grasp target-pose)
+  (grasp-object object-type arm grasp)
+  (place-object target-pose arm)
+  )
+
+(def-fact-group sides-predicates (opposite)
+  (<- (connection front right))
+  (<- (connection front left))
+  (<- (connection front top))
+  (<- (connection front bottom))
+  (<- (connection back right))
+  (<- (connection back left))
+  (<- (connection back top))
+  (<- (connection back bottom))
+  (<- (connection top left))
+  (<- (connection top right))
+  (<- (connection bottom left))
+  (<- (connection bottom right))
+  
+  (<- (opposite "top" "bottom"))
+  (<- (opposite "left" "right"))
+  (<- (opposite "front" "back")))

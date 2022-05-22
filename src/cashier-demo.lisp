@@ -48,7 +48,6 @@
   
 
 (defun grasp-object (?object-type ?arm ?grasp)
-  (print ?grasp)
   (let ((?look *spawn-area*))
     (exe:perform (desig:a motion
                           (type looking)
@@ -103,12 +102,9 @@
 
 
 (defun testing (side-list grasp-pose)
-  (let ((grasp-xyz-list (pose-to-xyz-list grasp-pose)))
-  (shortest-distance (distances-for-side-list side-list grasp-xyz-list))))
+  (let ((grasp-xyz-list (pose-to-vector-list grasp-pose)))
+    (shortest-distance-between-all-sides side-list grasp-xyz-list)))
     
-
-(defun pose-to-xyz-list (pose)
-  (cram-tf:3d-vector->list (cl-tf2:origin pose)))
 
 
 (defparameter *tf-broadcaster* nil)
@@ -139,4 +135,14 @@
   (init-tf-broadcaster)
   (spawn-object-on-counter-general object-list)
   (update-transform (first object-list))
+  )
+
+
+(defun left-turn (object-pose)
+  )
+
+(defun right-turn (object-pose)
+  )
+
+(defun up-turn (object-pose)
   )

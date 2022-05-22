@@ -84,14 +84,5 @@
      (:file "costmaps" :depends-on ("package"))
      (:file "spawn-objects" :depends-on ("package"))
      (:file "scan-objects" :depends-on ("package"))
-     (:file "projection-demo" :depends-on ("package" "costmaps"))
-     (:file "cashier-demo" :depends-on ("package" "costmaps" "projection-demo" "object-knowledge" "spawn-objects" "scan-objects"))
-     (:file "demo" :depends-on ("package" "projection-demo" "costmaps"))
-     (:file "milestone-projection-demo" :depends-on ("package"
-                                                     "projection-demo"
-                                                     "costmaps"))
-     (:file "data-generation-script" :depends-on ("package"
-                                                  "projection-demo"
-                                                  "costmaps"))
-     (:file "data-generation-plan" :depends-on ("package" "demo"))
-     (:file "evaluation-plan" :depends-on ("package" "demo"))))))
+     (:file "cashier-demo" :depends-on ("package" "costmaps" "object-knowledge" "spawn-objects" "scan-objects"))
+     ))))
