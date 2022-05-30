@@ -47,12 +47,11 @@
       (coe:on-event (make-instance 'cpoe:robot-state-changed)))
   
 
-(defun grasp-object (?object-type ?arm ?grasp)
-  (let ((?look *spawn-area*))
-    (exe:perform (desig:a motion
+(defun grasp-object (?object-type ?arm ?grasp ?look)
+  (exe:perform (desig:a motion
                           (type looking)
-                          (pose ?look)))
-    
+                          (pose ?look)))  
+   
   (let* ((?perceived-object-desig
            (exe:perform (desig:an action
                                   (type detecting)
@@ -63,7 +62,7 @@
                              (arm ?arm)
                              (grasp ?grasp)
                              (object ?perceived-object-desig)))
-    )))
+    ))
 
 (defun place-object (?target-pose ?arm)
   (cpl:par
@@ -81,7 +80,7 @@
   (urdf-proj:with-simulated-robot
     (pp-plans::park-arms)
 
-    (spawn-object-on-counter-general object-list)
+    (spawn-cylinder object-list)
     
     (init-setup)
     
@@ -89,14 +88,15 @@
 
     (move *look-nav-pose*)
     
-    (grasp-object (second object-list) :left (first (first (testing *sides* *grasp-spawn*))))
+    (grasp-object (second object-list) :left (first (first (testing *sides* *grasp-spawn*))) *spawn-area* )
     
     (move *place-nav-pose*)
 
-    (place-object *place-pose* :left)
-    
+    (place-object *place-pose* :left)   
 
     (scan (first object-list) (last object-list) *sides*)
+
+    (scan-all-sides (cdr *sides*) (last object-list) (second object-list) (first object-list))
     ))
   
 
@@ -135,14 +135,4 @@
   (init-tf-broadcaster)
   (spawn-object-on-counter-general object-list)
   (update-transform (first object-list))
-  )
-
-
-(defun left-turn (object-pose)
-  )
-
-(defun right-turn (object-pose)
-  )
-
-(defun up-turn (object-pose)
   )

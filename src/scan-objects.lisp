@@ -4,7 +4,7 @@
 (defun get-scan-area ()
   (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
-   (cl-transforms:make-3d-vector -2 0.3 0.5)
+   (cl-transforms:make-3d-vector -2 0.3 0.75)
    (cl-transforms:make-quaternion 0 0 0 1)))
 
 ;;for changing the relation of the side-pose from the object to the map
@@ -40,10 +40,6 @@
  :target-frame "map") 
   )
 
-
-
-
-
 (defun scan (object-name side side-list)
   (let ((scan-area-vector (first (cram-tf:pose->list
                                   (cram-tf::pose-stamped->pose (get-scan-area)))))
@@ -55,7 +51,7 @@
     
     (if (x-y-z-pose-check scan-area-vector object-vector)
         (roslisp:ros-info (scan-object) "object is in the scan area")
-        (roslisp:ros-info (scan-object) "object is no inside the scan area"))
+        (roslisp:ros-info (scan-object) "object is not inside the scan area"))
     
     (if (side-check side scan-area-vector side-list)
         (roslisp:ros-info (scan-object) "Object has the correct rotation and so the code was scaned")
@@ -70,7 +66,9 @@
          (scan-z (third scan-area-vector))
          (object-x (first object-vector))
          (object-y (second object-vector))
-         (object-z (third object-vector)))
+          (object-z (third object-vector)))
+    (print scan-area-vector)
+    (print object-vector)
     
     (if (and (< (- scan-x 0.05) object-x)
              (< object-x  (+ scan-x 0.05))
@@ -143,7 +141,7 @@
                 (list (opposite-short front)
                       front
                       bottom))
-          (list "left-adjusted" front
+          (list "back-turn" front
                 (list front
                       bottom
                       (opposite-short right))))
@@ -151,19 +149,18 @@
     ))
 
 (defun opposite-short (side)
-  (cdr (car (car (prolog:prolog `(or (opposite ,side ?x)
-                              (opposite ?x ,side)))))))
+  (cdaar (prolog:prolog `(or (opposite ,side ?x)
+                              (opposite ?x ,side)))))
 
 
 ;;returns relative bottom, right and front sides in form of a list.
-(defun locate-sides (object-vector side-list)
+(defun locate-sides (side-list object-vector)
   (let* ((right-list (vector-offset object-vector 0 -0.05 0.05))
          (front-list (vector-offset object-vector -0.05 0 0.05))
          (scan-list  (vector-offset object-vector 0 0 -0.05)))
-         
-    (let* ((right (first (first (shortest-distance-between-all-sides right-list object-vector))))
-         (front (first (first (shortest-distance-between-all-sides front-list object-vector))))
-         (bottom (first (first (shortest-distance-between-all-sides scan-list object-vector)))))
+    (let* ((right (shortest-distance-between-all-sides side-list right-list))
+           (front (shortest-distance-between-all-sides side-list front-list))
+           (bottom (shortest-distance-between-all-sides side-list scan-list)))
     (list bottom right front)
     )))
 
@@ -205,42 +202,88 @@
 
 
 ;; executes the path plan 
-(defun execute-side-path-plan (plan)
+(defun execute-side-path-plan (plan object-type arm grasp object-name)
   (loop for move in plan
         do (cond
-             ((string-equal "right-turn" move) (right-turn))
-             ((string-equal  "left-turn" move) (left-turn))
-             ((string-equal "front-turn" move) (front-turn))
-             ((string-equal "left-adjusted" move) (left-adjusted))
-             (t (print "illegal move")))))
+             ((string-equal "right-turn" move) (right-turn object-type arm grasp object-name))
+             ((string-equal  "left-turn" move) (left-turn object-type arm grasp object-name))
+             ((string-equal "front-turn" move) (front-turn object-type arm grasp object-name))
+             ((string-equal "back-turn" move) (back-turn object-type arm grasp object-name))
+             (t (print move)))))
 
-(defun right-turn ()
-  (print "right"))
+(defun right-turn (object-type arm grasp object-name)
+  (let* ((target-pose
+           (cl-tf2:make-pose-stamped
+            "map" 0
+           (cl-tf2:origin (btr:object-pose object-name))
+           (cl-tf2:q*
+            (cl-tf2:orientation (btr:object-pose object-name))
+            (cl-tf2:euler->quaternion :ax (-(/ pi 2)) :ay 0 :az 0)))))
+  (print "right")
+    (execute-change-side object-type arm grasp target-pose)))
 
-(defun left-turn ()
-  (print "left")  
-  )
+(defun left-turn (object-type arm grasp object-name)
+  (let* ((target-pose
+           (cl-tf2:make-pose-stamped
+            "map" 0
+           (cl-tf2:origin (btr:object-pose object-name))
+           (cl-tf2:q*
+            (cl-tf2:orientation (btr:object-pose object-name))
+            (cl-tf2:euler->quaternion :ax (/ pi 2) :ay 0 :az 0)))))
+    
+  (print "left")
+    (execute-change-side object-type arm grasp target-pose)))
 
-(defun front-turn ()
+(defun front-turn (object-type arm grasp object-name)
+  (let* ((target-pose
+           (cl-tf2:make-pose-stamped
+            "map" 0
+           (cl-tf2:origin (btr:object-pose object-name))
+           (cl-tf2:q*
+            (cl-tf2:orientation (btr:object-pose object-name))
+            (cl-tf2:euler->quaternion :ax 0 :ay (- (/ pi 2)) :az 0)))))
   (print "front")
-  )
+    (execute-change-side object-type arm grasp target-pose)))
 
-(defun left-adjusted ()
+(defun back-turn (object-type arm grasp object-name)
+  (let* ((target-pose
+           (cl-tf2:make-pose-stamped
+            "map" 0
+           (cl-tf2:origin (btr:object-pose object-name))
+           (cl-tf2:q*
+            (cl-tf2:orientation (btr:object-pose object-name))
+            (cl-tf2:euler->quaternion :ax 0 :ay (/ pi 2) :az 0)))))
   (print "left-adjusted")
-  )
+    (execute-change-side object-type arm grasp target-pose)))
 
+(defun adjust-height (bottom-side object-size)
+  (cond
+    ((or (string-equal "right" bottom-side) (string-equal "left" bottom-side)))
+    ((or (string-equal "front" bottom-side) (string-equal "back" bottom-side)))
+    ((or (string-equal "top" bottom-side) (string-equal "top" bottom-side)))
+    (t (print "something went wrong when adjusting the height")  
+  )))
 
 ;; iterates over the to scan sides.
 ;; first gets the current bottom side, front side and right side
 ;; then the path plan the path, execute the path, update object, scan
-(defun scan-all-sides (side-list-to-scan scan-area side-list)
-  )
+(defun scan-all-sides (side-list goal object-type object-name)
+  (loop for side in side-list
+        do
+  (let* ((object-vector (cram-tf:3d-vector->list
+                         (cl-tf2:origin (btr:object-pose object-name))))
+         (arm :left)
+         (grasp :front))
+    (print object-type)
+    (let* ((plan (path-plan-next-side (side-changes (locate-sides side-list object-vector)) (car side-list))))
+    (execute-side-path-plan plan object-type arm grasp object-name)
+  ))))
 
 ;;3-sides
 ;;list of sides of the 
 
 (defun execute-change-side (object-type arm grasp target-pose)
-  (grasp-object object-type arm grasp)
+  (grasp-object object-type arm grasp *place-pose*)
   (place-object target-pose arm)
   )
 
