@@ -4,32 +4,32 @@
   (cl-transforms-stamped:make-pose-stamped
    "map"
    0.0
-   (cl-transforms:make-3d-vector -1.2 1.3 0)
+   (cl-transforms:make-3d-vector -1.1 2 0)
    (cl-transforms:euler->quaternion :ax 0 :ay 0 :az pi)))
 
 (defparameter *grasp-spawn*
 (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
-   (cl-transforms:make-3d-vector -2 1.3 0.75)
+   (cl-transforms:make-3d-vector -2 2 0.75)
    (cl-transforms:euler->quaternion :ax 0 :ay 0 :az pi)))
 
 (defparameter *place-nav-pose*
   (cl-transforms-stamped:make-pose-stamped
    "map"
    0.0
-   (cl-transforms:make-3d-vector -1.2 0.3 0)
+   (cl-transforms:make-3d-vector -1.2 1.3 0)
    (cl-transforms:euler->quaternion :ax 0 :ay 0 :az pi)))
 
 (defparameter *spawn-area*
   (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
-   (cl-transforms:make-3d-vector -2 1.3 0.75)
+   (cl-transforms:make-3d-vector -2 2 0.75)
    (cl-transforms:euler->quaternion :ax 0 :ay 0 :az pi)))
 
 (defparameter *place-pose*
   (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
-   (cl-transforms:make-3d-vector -2 0.3 0.75)
+   (cl-transforms:make-3d-vector -2 1.3 0.75)
    (cl-transforms:make-quaternion 0 0 0 1)))
 
 (defparameter *scan-rotation*
@@ -48,10 +48,11 @@
   
 
 (defun grasp-object (?object-type ?arm ?grasp ?look)
+  (print ?look)
   (exe:perform (desig:a motion
                           (type looking)
                           (pose ?look)))  
-   
+  (print "looked")
   (let* ((?perceived-object-desig
            (exe:perform (desig:an action
                                   (type detecting)
@@ -78,25 +79,33 @@
   
 (defun pr2-cashier-demo ()
   (urdf-proj:with-simulated-robot
-    (pp-plans::park-arms)
+    ;;(pp-plans::park-arms)
 
-    (spawn-cylinder object-list)
-    
+    (print "arms")
+    (spawn-object-on-counter-general object-list-2)
+    (print "spawn")
     (init-setup)
+    (print "spawn-finished")
     
-    (setf *sides* (change-side-list-to-map (set-sides (first object-list) 0.1 0.1 0.1)))
+    (setf *sides* (change-side-list-to-map (set-sides (first object-list-2) 0.1 0.1 0.1)))
 
+    (print "sides set")
     (move *look-nav-pose*)
+    (print "moved")
     
-    (grasp-object (second object-list) :left (first (first (testing *sides* *grasp-spawn*))) *spawn-area* )
+    (grasp-object (second object-list-2) :left (caaar (cddr (locate-sides *sides* (origin->list (first object-list-2)))))
+  *spawn-area*)
     
     (move *place-nav-pose*)
 
+    (print "place")
+    (print *place-pose*)
+    
     (place-object *place-pose* :left)   
+    (print "scan")
+    (scan (first object-list-2) (last object-list-2) *sides*)
 
-    (scan (first object-list) (last object-list) *sides*)
-
-    (scan-all-sides (cdr *sides*) (last object-list) (second object-list) (first object-list))
+    (scan-all-sides (cdr *sides*) (last object-list-2) (second object-list-2) (first object-list-2))
     ))
   
 
@@ -116,7 +125,7 @@
 
 
 (defun create-stamped-transform-for-object (object-name)
-  (cl-tf:make-transform-stamped "map" "object" 0 
+  (cl-tf:make-transform-stamped "map" object-name 0 
                                 (cl-transforms:origin (get-object-pose object-name))
                                 (cl-transforms:orientation (get-object-pose object-name))))
 
@@ -133,6 +142,5 @@
 
 (defun init-setup ()
   (init-tf-broadcaster)
-  (spawn-object-on-counter-general object-list)
-  (update-transform (first object-list))
+  (update-transform (first object-list-2))
   )

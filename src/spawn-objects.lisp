@@ -1,13 +1,16 @@
 (in-package :cashier)
 
 (defparameter object-list
-  (list 'bottle-1 :bottle (list (list -2 1.3 0.8) (list 0 0 0 1)) :top ))
+  (list 'bottle-1 :bottle (list (list -2 2 0.75) (list 0 0 0 1)) :top ))
+
+(defparameter object-list-2
+  (list 'breakfast-cereal-1 :breakfast-cereal '((-2 2 0.75) (0 0 0 1)) :top ))
 
 (defun spawn-object-on-counter-general (list)
   (let ((name (first list))
         (type (second list))
         (pose (third list)))
-  (btr-utils:spawn-object name type :color '(1 0 0) :pose pose :mass)
+  (btr-utils:spawn-object name type :color '(1 0 0) :pose pose :mass 0.2)
   (btr:simulate btr:*current-bullet-world* 10)))
 
 (defun spawn-cylinder (list)
