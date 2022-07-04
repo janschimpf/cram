@@ -33,13 +33,6 @@
 (defun change-side-list-to-map (side-list)
   (mapcar (lambda (x) (list (first x) (second x))) side-list))
 
-(defun transform-side-list (side-list)
-  (mapcar (lambda (x) (list (first x)
-                            (cl-tf2:transform-pose-stamped cram-tf:*transformer*
-                                                           :pose (second x)
-                                                           :target-frame "map")))
-          side-list))
-
 (defun scan (object-name side side-list)
   (let ((scan-area-vector (first (cram-tf:pose->list
                                   (cram-tf::pose-stamped->pose (get-scan-area)))))
@@ -97,14 +90,15 @@
 
 
 (defun distances-for-side-list (side-list scan-vector)
-  (let ((map-side-list (change-side-list-to-map side-list))
-         )
+  (let ((map-side-list (change-side-list-to-map side-list)))
+    
    (mapcar (lambda (x) (list (first x)
-                             (distance-between-vectors scan-vector (pose-to-vector-list (second x)))))
-           map-side-list) 
-))
+                             (distance-between-vectors scan-vector
+                                                       (pose-to-vector-list (second x)))))
+           map-side-list)))
 
-;;gets two poses that are in relation to the map and then returns the distance between these two poses
+;;gets two poses that are in relation to the map and then returns the
+;;distance between these two poses
 (defun distance-between-vectors (scan-vector object-vector)
   (let ((3d-vector-1 scan-vector)
         (3d-vector-2 object-vector))
@@ -268,19 +262,37 @@
 ;; iterates over the to scan sides.
 ;; first gets the current bottom side, front side and right side
 ;; then the path plan the path, execute the path, update object, scan
-(defun scan-all-sides (side-list goal object-type object-name)
-  (loop for side in side-list
-        do
-  (let* ((object-vector (cram-tf:3d-vector->list
-                         (cl-tf2:origin (btr:object-pose object-name))))
-         (arm :left)
-         (grasp :front))
-    (print object-type)
-    (let* ((plan (path-plan-next-side (side-changes (locate-sides side-list object-vector))
-                                      (car side-list))))  
-      (execute-side-path-plan plan object-type arm grasp object-name)
-      (scan object-name goal side-list)
-  ))))
+(defun scan-object (&key
+                      ((:object-type ?object-type))
+                      ((:object-name ?object-name))
+                      ((:goal-side ?goal-side))
+                      ((:sides-base ?sides-base))
+                      ((:sides-transformed ?sides-transformed))
+                    &allow-other-keys)
+  
+  (declare (type keyword ?object-type ?goal-side)
+           (type list ?sides-base ?sides-transformed)
+           (type symbol ?object-name))
+
+  (cpl:with-retry-counters ((scan-counter-retries 6))
+    (cpl:with-failure-handling 
+    ((common-fail:high-level-failure (e)
+       (roslisp:ros-warn (cashier-demo) "Falure happend: ~a~% adjusting place postion" e)
+       (cpl:do-retry scan-counter-retries
+         (let* ((object-vector (cram-tf:3d-vector->list
+                                (cl-tf2:origin (btr:object-pose ?object-name))))
+                (?grasp :front)
+                (?arm :left))
+           (let* ((plan (path-plan-next-side (side-changes
+                                              (locate-sides ?sides-transformed object-vector))
+                                             (car ?sides-base))))
+             (execute-side-path-plan plan ?object-type ?arm ?grasp ?object-name))
+           (setf ?sides-transformed (transforms ?object-name ?sides-base))
+           (cpl:retry)))
+       (cpl:fail 'common-fail:high-level-failure)))
+      (if (not (scan ?object-name ?goal-side ?sides-transformed))
+        (print "scan was unsuccesful ! insert throw erros! to keep looping")
+      ))))
 
 ;;3-sides
 ;;list of sides of the 
