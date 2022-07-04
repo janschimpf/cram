@@ -1,10 +1,12 @@
 (in-package :cashier)
 
-(defparameter object-list
-  (list 'bottle-1 :bottle (list (list -2 2 0.75) (list 0 0 0 1)) :top ))
+(defparameter object-list-bottle
+  (list 'bottle-1 :bottle (list (list -2 2 0.75) (list 0 0 0 1)) :bottom))
 
-(defparameter object-list-2
-  (list 'breakfast-cereal-1 :breakfast-cereal '((-2 2 0.75) (0 0 0 1)) :top ))
+(defparameter object-list-breakfast-cereal
+  (list 'breakfast-cereal-1 :breakfast-cereal '((-2 2 0.75) (0 0 0 1)) :top))
+
+(defparameter spawn-objects-list (list object-list-breakfast-cereal))
 
 (defun spawn-object-on-counter-general (list)
   (let ((name (first list))

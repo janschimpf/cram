@@ -38,12 +38,11 @@
 (defparameter *sides* nil)
 
 (defun move (?navigation-goal)
-    (cpl:par
       (exe:perform (desig:an action
                              (type parking-arms)))
       (exe:perform (desig:a motion
                             (type going)
-                            (pose ?navigation-goal))))
+                            (pose ?navigation-goal)))
       (coe:on-event (make-instance 'cpoe:robot-state-changed)))
   
 
@@ -66,7 +65,6 @@
     ))
 
 (defun place-object (?target-pose ?arm)
-  (cpl:par
     (exe:perform (desig:a motion
                           (type looking)
                           (pose ?target-pose)))
@@ -74,73 +72,116 @@
                            (type placing)
                            (arm ?arm)
                            (target (desig:a location
-                                            (pose ?target-pose)))))))
-  
-  
-(defun pr2-cashier-demo ()
-  (urdf-proj:with-simulated-robot
-    ;;(pp-plans::park-arms)
+                                            (pose ?target-pose))))))
 
-    (print "arms")
-    (spawn-object-on-counter-general object-list-2)
-    (print "spawn")
-    (init-setup)
-    (print "spawn-finished")
+
+(defun test-action-desig (?object-list)
+  (let ((?object-type (first ?object-list))
+        (?object-name (second ?object-list))
+        (?goal-side (car (last ?object-list))))
+  (desig:an action
+            (:type :cashier)
+            (:object-list ?object-list)
+            (:object-type ?object-name)
+            (:object-name ?object-type)
+            (:goal-side ?goal-side))))
+
+(defun pr2-cashier-demo ()
+
+  (loop for object in spawn-objects-list
+        do
+           
+  (spawn-object-on-counter-general object)
+  (init-setup)
+  (urdf-proj:with-simulated-robot
+  (let ((?object-name (first object))
+        (?object-type (second object))
+        (?goal-side (car (last object))))
+    (exe:perform (desig:an action
+                           (:type :cashier)
+                           (:object-list object)
+                           (:object-type ?object-type)
+                           (:object-name ?object-name)
+                           (:goal-side ?goal-side)))))))
+
+(defun cashier-object (&key ((:object-type ?object-type))
+                             ((:object-name ?name))
+                             ((:goal-side ?goal-side))
+                             ((:sides-base ?sides-base))
+                             ((:sides-transformed ?sides-transformed))
+                        &allow-other-keys)
+  (declare (type keyword ?object-type ?goal-side)
+           (type list ?sides-base ?sides-transformed)
+           (type symbol ?name))
+  
     
-    (setf *sides* (change-side-list-to-map (set-sides (first object-list-2) 0.1 0.1 0.1)))
+      
+    (print ?sides-transformed)
 
     (print "sides set")
     (move *look-nav-pose*)
+  
     (print "moved")
-    
-    (grasp-object (second object-list-2) :left (caaar (cddr (locate-sides *sides* (origin->list (first object-list-2)))))
-  *spawn-area*)
-    
-    (move *place-nav-pose*)
 
+    ;;(let ((test (locate-sides transformed-sides
+    ;;                          (origin->list ?name))))
+    ;;(print test)  
+    (grasp-object ?object-type :left
+                  (caaar (cddr
+                          (locate-sides ?sides-transformed
+                                        (origin->list ?name)))) *spawn-area*)    
+    ;;(move *place-nav-pose*)
     (print "place")
     (print *place-pose*)
-    
-    (place-object *place-pose* :left)   
-    (print "scan")
-    (scan (first object-list-2) (last object-list-2) *sides*)
-
-    (scan-all-sides (cdr *sides*) (last object-list-2) (second object-list-2) (first object-list-2))
-    ))
+    (place-object *place-pose* :left)
+    (let* ((transformed-sides (transforms ?name ?sides-base)))
+    (if (not
+      (scan ?name ?goal transformed-sides))
+        (scan-all-sides (cdr ?sides-base) ?goal
+                        ?object-type ?name))
+      ))
   
 
-
-(defun testing (side-list grasp-pose)
-  (let ((grasp-xyz-list (pose-to-vector-list grasp-pose)))
-    (shortest-distance-between-all-sides side-list grasp-xyz-list)))
+(prolog:def-fact-group cashier-plans (desig:action-grounding) 
+  (prolog:<- (desig:action-grounding ?action-designator
+                                     (cashier-object ?resolved-action-designator))
+    (desig-prop ?action-designator (:type :cashier))
+    (desig-prop ?action-designator (:object-name ?object-name))
+    (desig-prop ?action-designator (:object-type ?object-type))
+    (desig-prop ?action-designator (:goal-side ?goal-side))
+    (desig-prop ?action-designator (:object-list ?object-list))
     
+    (lisp-fun set-sides ?object-name 0.1 0.1 0.1 ?sides-base)
+    (lisp-fun transforms ?object-name ?sides-base ?sides-transformed)
+    
+    (desig:designator :action ((:type :cashier)
+                               (:object-type ?object-type)
+                               (:object-name ?object-name)
+                               (:goal-side ?goal-side)
+                               (:sides-base ?sides-base)
+                               (:sides-transformed ?sides-transformed))
+                      ?resolved-action-designator))
+  
+  (prolog:<- (desig:action-grounding ?action-designator
+                                     (scan-object ?resolved-action-designator))
+    (desig-prop ?action-designator (:type :scanning))
+    (desig-prop ?action-designator (:sides-base ?sides-base))
+    (desig-prop ?action-designator (:goal-side ?goal-side))
+    (desig-prop ?action-designator (:object-type ?object-type))
+    (desig-prop ?action-designator (:name ?name))
 
+    (desig:designator :action ((:type :scanning)
+                               (:sides-base ?sides-base)
+                               (:goal-side ?goal-side)
+                               (:object-type ?object-type)
+                               (:name ?name))
+                      ?resolved-action-designator))
+    )
 
-(defparameter *tf-broadcaster* nil)
-(defun init-tf-broadcaster ()
-  (setf *tf-broadcaster* (cram-tf:make-tf-broadcaster "/tf" 0.1)))
-
-(defun get-object-pose (object-name)
-  (btr:object-pose object-name))
-
-
-(defun create-stamped-transform-for-object (object-name)
-  (cl-tf:make-transform-stamped "map" object-name 0 
-                                (cl-transforms:origin (get-object-pose object-name))
-                                (cl-transforms:orientation (get-object-pose object-name))))
-
-(defun update-transform (object-name)
-  (cram-tf:add-transform cram-tf:*broadcaster* (create-stamped-transform-for-object object-name))
-  (cram-tf::publish-transforms cram-tf:*broadcaster*))
-
-(defun test-transform ()
- (cl-tf2:transform-pose-stamped cram-tf:*transformer*
- :pose (cl-tf2:make-pose-stamped "object" 0
-                                 (cl-tf2:make-3d-vector 0.05 0 0)
-                                 (cl-transforms:make-quaternion 0 0 0 1))
- :target-frame "map"))
-
-(defun init-setup ()
-  (init-tf-broadcaster)
-  (update-transform (first object-list-2))
-  )
+(defun transforms (object-name side-poses)
+  (mapcar (lambda (x)
+            (let* ((map-T-object (cl-transforms:pose->transform (btr:object-pose object-name)))
+                   (object-T-side (cl-transforms:pose->transform (first (cdr x))))
+                   (map-T-side  (cl-transforms:transform* map-T-object object-T-side)))
+    (list (car x) (cl-transforms:transform->pose map-T-side))))
+          side-poses))

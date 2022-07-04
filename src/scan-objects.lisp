@@ -4,7 +4,7 @@
 (defun get-scan-area ()
   (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
-   (cl-transforms:make-3d-vector -2 2 0.70)
+   (cl-transforms:make-3d-vector -2 1.3 0.70)
    (cl-transforms:make-quaternion 0 0 0 1)))
 
 ;;for changing the relation of the side-pose from the object to the map
@@ -15,16 +15,15 @@
         (object-rotation (cl-tf2:orientation
                           (cram-tf::pose-stamped->pose (btr:object-pose object-name))))
        (side-list (list
-                   (list :top (cl-transforms:make-3d-vector 0 0 object-z))
-                   (list :bottom (cl-transforms:make-3d-vector 0 0 0))
+                   (list :top (cl-transforms:make-3d-vector 0 0 0.05))
+                   (list :bottom (cl-transforms:make-3d-vector 0 0 -0.05))
                    
-                   (list :left (cl-transforms:make-3d-vector 0 object-y (/ object-z 2)))
-                   (list :right (cl-transforms:make-3d-vector 0 (- object-y ) (/ object-z 2)))
+                   (list :left (cl-transforms:make-3d-vector 0 0.05 0))
+                   (list :right (cl-transforms:make-3d-vector 0 -0.05 0))
                    
-                   (list :back (cl-transforms:make-3d-vector object-x 0 (/ object-z 2)))
-                   (list :front (cl-transforms:make-3d-vector (- object-x) 0 (/ object-z 2))))))
-    (let ((side (mapcar (lambda (x) (list (first x) (cl-tf:make-pose-stamped
-                         "object" 0
+                   (list :back (cl-transforms:make-3d-vector 0.05 0 0))
+                   (list :front (cl-transforms:make-3d-vector -0.05 0 0)))))
+    (let ((side (mapcar (lambda (x) (list (first x) (cl-tf:make-pose
                          (second x)
                          object-rotation)))
                         side-list)))
@@ -34,11 +33,12 @@
 (defun change-side-list-to-map (side-list)
   (mapcar (lambda (x) (list (first x) (second x))) side-list))
 
-(defun transform-short-cut (pose)
-  (cl-tf2:transform-pose-stamped cram-tf:*transformer*
- :pose (second pose)
- :target-frame "map") 
-  )
+(defun transform-side-list (side-list)
+  (mapcar (lambda (x) (list (first x)
+                            (cl-tf2:transform-pose-stamped cram-tf:*transformer*
+                                                           :pose (second x)
+                                                           :target-frame "map")))
+          side-list))
 
 (defun scan (object-name side side-list)
   (let ((scan-area-vector (first (cram-tf:pose->list
@@ -53,10 +53,13 @@
         (roslisp:ros-info (scan-object) "object is in the scan area")
         (roslisp:ros-info (scan-object) "object is not inside the scan area"))
     
-    (if (side-check side scan-area-vector side-list)
+    (if (side-check side object-vector side-list)
         (roslisp:ros-info (scan-object) "Object has the correct rotation and so the code was scaned")
         (roslisp:ros-info (scan-object) "Object has the wrong rotation"))        
-        
+    (if (and (side-check side object-vector side-list) (x-y-z-pose-check scan-area-vector object-vector))
+        t
+        nil
+        )
   ))
 
 
@@ -75,18 +78,19 @@
              (< (- scan-y 0.05) object-y)
              (< object-y  (+ scan-y 0.05))
              (< (- scan-z 0.05) object-z)
-             (< object-z   (+ scan-z 0.05)))
+             (< object-z   (+ scan-z 0.15)))
         t
         nil
         )) 
   )
 
 
-(defun side-check (side-to-be scan-vector side-list)
-  (let ((side-as-is (shortest-distance (distances-for-side-list side-list scan-vector))))
+(defun side-check (side-to-be object-vector side-list)
+  (let ((side-as-is (caaar (locate-sides side-list object-vector))))
     (print side-as-is)
-    (print  (car side-to-be))
-        (if (equal (car (last side-to-be)) (first (first side-as-is)))
+    (print side-to-be)
+    (print (locate-sides side-list object-vector))    
+        (if (equal side-to-be side-as-is)
             t
             nil
   )))
@@ -104,9 +108,9 @@
 (defun distance-between-vectors (scan-vector object-vector)
   (let ((3d-vector-1 scan-vector)
         (3d-vector-2 object-vector))
-    (sqrt (+ (expt (- (first 3d-vector-1) (first 3d-vector-2)) 2)
-             (expt (- (second 3d-vector-1) (second 3d-vector-2)) 2)
-             (expt (- (third 3d-vector-1) (third 3d-vector-2)) 2)))))
+    (sqrt (+ (expt (- (first 3d-vector-2) (first 3d-vector-1)) 2)
+             (expt (- (second 3d-vector-2) (second 3d-vector-1)) 2)
+             (expt (- (third 3d-vector-2) (third 3d-vector-1)) 2)))))
   
 (defun shortest-distance (side-list)
   (sort side-list #'< :key 'second))
@@ -155,8 +159,8 @@
 
 ;;returns relative bottom, right and front sides in form of a list.
 (defun locate-sides (side-list object-vector)
-  (let* ((right-list (vector-offset object-vector 0 -0.05 0.05))
-         (front-list (vector-offset object-vector -0.05 0 0.05))
+  (let* ((right-list (vector-offset object-vector 0 -0.05 0))
+         (front-list (vector-offset object-vector -0.05 0 0))
          (scan-list  (vector-offset object-vector 0 0 -0.05)))
     (let* ((right (shortest-distance-between-all-sides side-list right-list))
            (front (shortest-distance-between-all-sides side-list front-list))
@@ -272,8 +276,10 @@
          (arm :left)
          (grasp :front))
     (print object-type)
-    (let* ((plan (path-plan-next-side (side-changes (locate-sides side-list object-vector)) (car side-list))))  
-    (execute-side-path-plan plan object-type arm grasp object-name)
+    (let* ((plan (path-plan-next-side (side-changes (locate-sides side-list object-vector))
+                                      (car side-list))))  
+      (execute-side-path-plan plan object-type arm grasp object-name)
+      (scan object-name goal side-list)
   ))))
 
 ;;3-sides
@@ -310,12 +316,8 @@
            (cram-tf:list->3d-vector (vector-offset (origin->list object-name) 0 0 offset))
            orientation )))
          (let ((?target-pose-test (btr:ensure-pose target-pose)))
-           (print offset)
-           (print target-pose)
-           (print ?target-pose-test)
-           (print object-type)
-           (print object-name)
-           (shortcut-pose-stability (object-desig-shortcut object-type) (a location (pose ?target-pose-test)))
+           (shortcut-pose-stability (object-desig-shortcut object-type)
+                                    (a location (pose ?target-pose-test)))
            ?target-pose-test
            ))))))
 
