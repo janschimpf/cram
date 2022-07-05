@@ -52,9 +52,6 @@
   (shortest-distance (distances-for-side-list side-list xyz-list)))
 
 
-
-  
-
 ;; plans the path between the current bottom side and the side that should be scanned next
 ;; then returns said path (list were the movement are the elements)
 (defun path-plan-next-side (testinput goal) ;;(current-side next-side side-list object-vector)
@@ -105,8 +102,7 @@
     (print "left")
 
     (execute-change-side object-type arm grasp
-                         (place-pose-stability-adjustment orientation object-type object-name 0)))
-  )
+                         (place-pose-stability-adjustment orientation object-type object-name 0))))
 
 (defun front-turn (object-type arm grasp object-name)
   (let* ((orientation
@@ -178,10 +174,9 @@
 ;;list of sides of the 
 
 (defun execute-change-side (object-type arm grasp target-pose)
-  (print target-pose)
+
   (grasp-object object-type arm grasp *place-pose*)
-  (place-object target-pose arm)
-  )
+  (place-object target-pose arm))
 
 (defun object-desig-shortcut (?object-type)
   (desig:an object (type ?object-type)))
