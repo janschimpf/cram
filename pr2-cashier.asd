@@ -28,10 +28,10 @@
 ;;; POSSIBILITY OF SUCH DAMAGE.
 
 (defsystem pr2-cashier
-  :author "gaya"
+  :author "Jan Schimpf"
   :license "BSD"
 
-  :depends-on (roslisp-utilities ; for ros-init-function
+  :depends-on (roslisp-utilities 
 
                cl-transforms
                cl-transforms-stamped
@@ -45,7 +45,7 @@
                cram-prolog
                cram-projection
                cram-occasions-events
-               cram-utilities ; for EQUALIZE-LISTS-OF-LISTS-LENGTHS
+               cram-utilities 
 
                cram-common-failures
                cram-mobile-pick-place-plans
@@ -53,8 +53,8 @@
 
                cram-cloud-logger
 
-               cram-physics-utils     ; for reading "package://" paths
-               cl-bullet ; for handling BOUNDING-BOX datastructures
+               cram-physics-utils     
+               cl-bullet 
                cram-bullet-reasoning
                cram-bullet-reasoning-belief-state
                cram-bullet-reasoning-utilities
@@ -65,8 +65,8 @@
                cram-robot-pose-gaussian-costmap
                cram-occupancy-grid-costmap
 
-               cram-urdf-projection      ; for with-simulated-robot
-               cram-urdf-projection-reasoning ; to set projection reasoning to T
+               cram-urdf-projection     
+               cram-urdf-projection-reasoning 
                cram-fetch-deliver-plans
                cram-urdf-environment-manipulation
 
@@ -81,8 +81,9 @@
     ((:file "package")
      (:file "setup" :depends-on ("package"))
      (:file "object-knowledge" :depends-on ("package" ))
-     (:file "costmaps" :depends-on ("package"))
      (:file "spawn-objects" :depends-on ("package"))
      (:file "scan-objects" :depends-on ("package"))
-     (:file "cashier-demo" :depends-on ("package" "costmaps" "object-knowledge" "spawn-objects" "scan-objects"))
+     (:file "cashier-designator" :depends-on ("package" "scan-objects"))
+     (:file "cashier-designator-plan" :depends-on ("package" "scan-objects" "cashier-designator"))
+     (:file "cashier-demo" :depends-on ("package" "object-knowledge" "spawn-objects" "scan-objects" "cashier-designator" "cashier-designator-plan"))
      ))))

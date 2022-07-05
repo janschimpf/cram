@@ -4,4 +4,4 @@
   :components ((:module "tests"
                 :components
                 ((:file "package")
-                 (:file "projection-demo-tests" :depends-on ("package"))))))
+                 ))))

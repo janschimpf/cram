@@ -33,9 +33,5 @@
   (:nicknames #:cashier)
   (:use #:common-lisp #:cram-prolog
         #:desig #:exe)
-  (:export
-   ;; setup
-   ;; #:bla
-   ;; demo
-   ))
+  )
 

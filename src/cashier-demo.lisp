@@ -92,7 +92,6 @@
         do
            
   (spawn-object-on-counter-general object)
-  (init-setup)
   (urdf-proj:with-simulated-robot
   (let ((?object-name (first object))
         (?object-type (second object))
@@ -119,9 +118,6 @@
   (move *look-nav-pose*)
   (print "moved")
 
-    ;;(let ((test (locate-sides transformed-sides
-    ;;                          (origin->list ?name))))
-  ;;(print test)
   (grasp-object ?object-type :left
                 (caaar (cddr
                         (locate-sides ?sides-transformed
@@ -137,52 +133,6 @@
                          (:sides-base ?sides-base)))
   (print "object was succesfully scanned"))
 
-   ;;   ))
   
 
-(prolog:def-fact-group cashier-plans (desig:action-grounding) 
-  (prolog:<- (desig:action-grounding ?action-designator
-                                     (cashier-object ?resolved-action-designator))
-    (desig-prop ?action-designator (:type :cashier))
-    (desig-prop ?action-designator (:object-name ?object-name))
-    (desig-prop ?action-designator (:object-type ?object-type))
-    (desig-prop ?action-designator (:goal-side ?goal-side))
-    (desig-prop ?action-designator (:object-list ?object-list))
-    
-    (lisp-fun set-sides ?object-name 0.1 0.1 0.1 ?sides-base)
-    (lisp-fun transforms ?object-name ?sides-base ?sides-transformed)
-    
-    (desig:designator :action ((:type :cashier)
-                               (:object-type ?object-type)
-                               (:object-name ?object-name)
-                               (:goal-side ?goal-side)
-                               (:sides-base ?sides-base)
-                               (:sides-transformed ?sides-transformed))
-                      ?resolved-action-designator))
-  
-  (prolog:<- (desig:action-grounding ?action-designator
-                                     (scan-object ?resolved-action-designator))
-    (desig-prop ?action-designator (:type :scanning))
-    (desig-prop ?action-designator (:sides-base ?sides-base))
-    (desig-prop ?action-designator (:goal-side ?goal-side))
-    (desig-prop ?action-designator (:object-type ?object-type))
-    (desig-prop ?action-designator (:object-name ?name))
 
-    (lisp-fun transforms ?object-name ?sides-base ?sides-transformed)
-
-    (desig:designator :action ((:type :scanning)
-                               (:sides-base ?sides-base)
-                               (:goal-side ?goal-side)
-                               (:object-type ?object-type)
-                               (:object-name ?name)
-                               (:sides-transformed ?sides-transformed))
-                      ?resolved-action-designator))
-    )
-
-(defun transforms (object-name side-poses)
-  (mapcar (lambda (x)
-            (let* ((map-T-object (cl-transforms:pose->transform (btr:object-pose object-name)))
-                   (object-T-side (cl-transforms:pose->transform (first (cdr x))))
-                   (map-T-side  (cl-transforms:transform* map-T-object object-T-side)))
-    (list (car x) (cl-transforms:transform->pose map-T-side))))
-          side-poses))
