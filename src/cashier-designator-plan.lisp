@@ -54,20 +54,18 @@
 
 ;; plans the path between the current bottom side and the side that should be scanned next
 ;; then returns said path (list were the movement are the elements)
-(defun path-plan-next-side (testinput goal) ;;(current-side next-side side-list object-vector)
-  ;;(let ((sides-after-move (side-changes (locate-sides object-vector side-list))))
-  (let ((get-side-lists testinput))
-    (let ((sorted-sides-list (check-sides-moves get-side-lists goal)))
+(defun path-plan-next-side (side-list goal) ;;(current-side next-side side-list object-vector)
+  (let ((sorted-sides-list (check-sides-moves side-list goal)))
     (if (null sorted-sides-list)
-        (path-second-step get-side-lists goal)
+        (path-second-step side-list goal)
       (list (car sorted-sides-list))
-    ))))
+    )))
 
 (defun check-sides-moves (sides-list goal)
-  (first (remove nil (remove-duplicates
+   (remove nil (remove-duplicates
                       (mapcar (lambda (x)
                                 (if (equal goal (second x)) x))
-                               sides-list)))))
+                               sides-list))))
 
 (defun path-second-step (move-list goal)
   (let ((new-sides (car (reverse (car move-list)))))
@@ -77,13 +75,23 @@
 
 
 ;; executes the path plan 
-(defun execute-side-path-plan (plan object-type arm grasp object-name)
-  (loop for move in plan
+(defun change-side (&key
+                      ((:plan ?plan))
+                      ((:object-type ?object-type))
+                      ((:object-name ?object-name))
+                      ((:arm ?arm))
+                      ((:grasp ?grasp))
+                    &allow-other-keys)
+  (declare (type list ?plan)
+           (type keyword ?arm ?grasp ?object-type)
+           (type symbol ?object-name))
+
+  (loop for move in ?plan
         do (cond
-             ((string-equal "right-turn" move) (right-turn object-type arm grasp object-name))
-             ((string-equal  "left-turn" move) (left-turn object-type arm grasp object-name))
-             ((string-equal "front-turn" move) (front-turn object-type arm grasp object-name))
-             ((string-equal "back-turn" move) (back-turn object-type arm grasp object-name))
+             ((string-equal "right-turn" move) (right-turn ?object-type ?arm ?grasp ?object-name))
+             ((string-equal  "left-turn" move) (left-turn ?object-type ?arm ?grasp ?object-name))
+             ((string-equal "front-turn" move) (front-turn ?object-type ?arm ?grasp ?object-name))
+             ((string-equal "back-turn" move) (back-turn ?object-type ?arm ?grasp ?object-name))
              (t (print move)))))
 
 (defun right-turn (object-type arm grasp object-name)
@@ -149,22 +157,33 @@
   (declare (type keyword ?object-type ?goal-side)
            (type list ?sides-base ?sides-transformed)
            (type symbol ?object-name))
-
+  (print ?sides-transformed)
+  (setf ?sides-transformed (transforms-map-t-side ?object-name ?sides-base))
   (cpl:with-retry-counters ((scan-counter-retries 6))
     (cpl:with-failure-handling 
     ((common-fail:high-level-failure (e)
        (roslisp:ros-warn (cashier-demo) "Falure happend: ~a~% adjusting place postion" e)
        (cpl:do-retry scan-counter-retries
-         (let* ((object-vector (cram-tf:3d-vector->list
+         (let* ((?object-vector (cram-tf:3d-vector->list
                                 (cl-tf2:origin (btr:object-pose ?object-name))))
                 (?grasp :front)
-                (?arm :left))
+                (?arm :left))           
            (let* ((plan (path-plan-next-side (side-changes
-                                              (locate-sides ?sides-transformed object-vector))
+                                              (locate-sides ?sides-transformed ?object-vector))
                                              (car ?sides-base))))
-             (execute-side-path-plan plan ?object-type ?arm ?grasp ?object-name))
-           (setf ?sides-transformed (transforms-map-t-side ?object-name ?sides-base))
-           (cpl:retry)))
+             ;;(exe:perform
+             ;; (desig:an action
+             ;;         (:type :changing-side)
+             ;;         (:object-name ?object-name)
+             ;;         (:object-type ?object-type)
+             ;;         (:arm ?arm)
+             ;;         (:grasp ?grasp)
+             ;;         (:change-to-side ?goal-side)
+             ;;         (:sides-transformed ?sides-transformed)
+             ;;         (:object-vector ?object-vector)))
+             (setf ?sides-transformed (transforms-map-t-side ?object-name ?sides-base))
+             (print plan)))
+           (cpl:retry))
        (cpl:fail 'common-fail:high-level-failure)))
       (if (not (scan ?object-name ?goal-side ?sides-transformed))
         (cpl:fail 'common-fail:high-level-failure)
@@ -175,7 +194,8 @@
 
 (defun execute-change-side (object-type arm grasp target-pose)
 
-  (grasp-object object-type arm grasp *place-pose*)
+  (grasp-object ?object-type
+                arm grasp *place-pose*)
   (place-object target-pose arm))
 
 (defun object-desig-shortcut (?object-type)

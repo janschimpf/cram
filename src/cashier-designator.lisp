@@ -62,23 +62,23 @@
     (desig-prop ?action-designator (:type :changing-side))
     (desig-prop ?action-designator (:object-type ?object-type))
     (desig-prop ?action-designator (:object-name ?object-name))
-    (desig-prop ?action-designator (:sides-base ?sides-transformed))
+    (desig-prop ?action-designator (:sides-transformed ?sides-transformed))
     (desig-prop ?action-designator (:arm ?arm))
     (desig-prop ?action-designator (:grasp ?grasp))
-    (desig-prop ?action-designator (:change-to-side ?side))
-    (lisp-fun (cram-tf:3d-vector->list
-               (cl-tf2:origin (btr:object-pose ?object-name)))
-              ?object-vector)
-    (lisp-fun (side-changes (locate-sides ?sides-transformed ?object-vector)) ?located-sides)
-    (lisp-fun (path-plan-next-side ?located-sides) ?plan)
+    (desig-prop ?action-designator (:change-to-side ?side-goal))
+    (desig-prop ?action-designator (:object-vector ?object-vector))
+
+    (lisp-fun locate-sides ?sides-transformed ?object-vector ?located-sides)
+    (lisp-fun side-changes ?located-sides ?side-changes)
+    (lisp-fun path-plan-next-side ?side-changes ?side-goal ?plan)
 
     (desig:designator :action ((:type :changing-side)
                                (:object-type ?object-type)
                                (:object-name ?object-name)
-                               (:sides-base ?sides-base)
+                               (:arm ?arm)
+                               (:grasp ?grasp)
                                (:plan ?plan))
                       
-                      ?resolved-action-designator))
-                    
+                      ?resolved-action-designator))                   
   )
 
