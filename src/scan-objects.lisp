@@ -45,31 +45,33 @@
         (roslisp:ros-info (scan-object) "object is not inside the scan area"))
     
     (if (side-check side object-vector side-list)
-        (roslisp:ros-info (scan-object) "Object has the correct rotation and so the code was scaned")
-        (roslisp:ros-info (scan-object) "Object has the wrong rotation"))
-    
-    (if (and (side-check side object-vector side-list) (x-y-z-pose-check scan-area-vector object-vector))
+        (roslisp:ros-info (scan-object)
+                          "Object has the correct rotation and so the code was scaned")
+        (roslisp:ros-info (scan-object)
+                          "Object has the wrong rotation"))
+    (print 
+    (if (and (side-check side object-vector side-list)
+             (x-y-z-pose-check scan-area-vector object-vector))
         t
         nil
         )
-  ))
+  )))
 
 
 (defun x-y-z-pose-check (scan-area-vector object-vector)
+  (print scan-area-vector)
+  (print object-vector)
   (let*  ((scan-x (first scan-area-vector))
          (scan-y (second scan-area-vector))
          (scan-z (third scan-area-vector))
          (object-x (first object-vector))
          (object-y (second object-vector))
-          (object-z (third object-vector)))
-    (print scan-area-vector)
-    (print object-vector)
-    
-    (if (and (< (- scan-x 0.05) object-x)
-             (< object-x  (+ scan-x 0.05))
+          (object-z (third object-vector)))    
+    (if (and (< (- scan-x 0.1) object-x)
+             (< object-x  (+ scan-x 0.10))
              (< (- scan-y 0.05) object-y)
-             (< object-y  (+ scan-y 0.05))
-             (< (- scan-z 0.05) object-z)
+             (< object-y  (+ scan-y 0.1))
+             (< (- scan-z 0.1) object-z)
              (< object-z   (+ scan-z 0.15)))
         t
         nil
@@ -79,8 +81,8 @@
 
 (defun side-check (side-to-be object-vector side-list)
   (let ((side-as-is (caaar (locate-sides side-list object-vector))))
-    (print side-as-is)
     (print side-to-be)
+    (print side-as-is)
         (if (equal side-to-be side-as-is)
             t
             nil
@@ -111,22 +113,3 @@
 (defun pose-to-vector-list (pose)
    (cram-tf:3d-vector->list (cl-tf2:origin pose)))
 
-
-
-(def-fact-group sides-predicates (opposite)
-  (<- (connection front right))
-  (<- (connection front left))
-  (<- (connection front top))
-  (<- (connection front bottom))
-  (<- (connection back right))
-  (<- (connection back left))
-  (<- (connection back top))
-  (<- (connection back bottom))
-  (<- (connection top left))
-  (<- (connection top right))
-  (<- (connection bottom left))
-  (<- (connection bottom right))
-  
-  (<- (opposite "top" "bottom"))
-  (<- (opposite "left" "right"))
-  (<- (opposite "front" "back")))

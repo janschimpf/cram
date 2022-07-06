@@ -4,7 +4,7 @@
   (list 'bottle-1 :bottle (list (list -2 2 0.75) (list 0 0 0 1)) :bottom))
 
 (defparameter object-list-breakfast-cereal
-  (list 'breakfast-cereal-1 :breakfast-cereal '((-2 2 0.75) (0 0 0 1)) :left))
+  (list 'breakfast-cereal-1 :breakfast-cereal '((-2 2 0.75) (0 0 0 1)) :back))
 
 (defparameter spawn-objects-list (list object-list-breakfast-cereal))
 

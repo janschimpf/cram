@@ -1,10 +1,9 @@
 (in-package :cashier)
 
 (defun side-changes (side-list)
-  (let* ((bottom (first side-list))
-         (right (second side-list))
-         (front (third side-list)))
-    
+  (let* ((bottom (caar (first side-list)))
+         (right (caar (second side-list)))
+         (front (caar (third side-list))))
     (list (list "right-turn" right (list
                                     right
                                     (opposite-short bottom)
@@ -56,21 +55,21 @@
 ;; then returns said path (list were the movement are the elements)
 (defun path-plan-next-side (side-list goal) ;;(current-side next-side side-list object-vector)
   (let ((sorted-sides-list (check-sides-moves side-list goal)))
+    (print sorted-sides-list)
     (if (null sorted-sides-list)
         (path-second-step side-list goal)
-      (list (car sorted-sides-list))
-    )))
+     (list (first (car sorted-sides-list))
+    ))))
 
 (defun check-sides-moves (sides-list goal)
-   (remove nil (remove-duplicates
-                      (mapcar (lambda (x)
-                                (if (equal goal (second x)) x))
-                               sides-list))))
+  (remove nil (mapcar (lambda (x)
+                        (if (equal goal (second x)) x))
+                      sides-list)))
 
 (defun path-second-step (move-list goal)
   (let ((new-sides (car (reverse (car move-list)))))
     (let ((second-move (car (check-sides-moves (side-changes new-sides) goal)))) 
-      (list (car (car move-list)) second-move))))
+      (list (first (car move-list)) second-move))))
 
 
 
@@ -85,7 +84,6 @@
   (declare (type list ?plan)
            (type keyword ?arm ?grasp ?object-type)
            (type symbol ?object-name))
-
   (loop for move in ?plan
         do (cond
              ((string-equal "right-turn" move) (right-turn ?object-type ?arm ?grasp ?object-name))
@@ -93,11 +91,11 @@
              ((string-equal "front-turn" move) (front-turn ?object-type ?arm ?grasp ?object-name))
              ((string-equal "back-turn" move) (back-turn ?object-type ?arm ?grasp ?object-name))
              (t (print move)))))
-
+)  
 (defun right-turn (object-type arm grasp object-name)
   (let* ((orientation (cl-tf2:q*
             (cl-tf2:orientation (btr:object-pose object-name))
-            (cl-tf2:euler->quaternion :ax (-(/ pi 2)) :ay 0 :az 0))))
+            (cl-tf2:euler->quaternion :ax (/ pi 2) :ay 0 :az 0))))
     (print "right")
     (execute-change-side object-type arm grasp
                          (place-pose-stability-adjustment orientation object-type object-name 0))))
@@ -105,7 +103,7 @@
 (defun left-turn (object-type arm grasp object-name)
   (let* ((orientation (cl-tf2:q*
             (cl-tf2:orientation (btr:object-pose object-name))
-            (cl-tf2:euler->quaternion :ax (/ pi 2) :ay 0 :az 0))))
+            (cl-tf2:euler->quaternion :ax (- (/ pi 2)) :ay 0 :az 0))))
     
     (print "left")
 
@@ -116,7 +114,7 @@
   (let* ((orientation
            (cl-tf2:q*
             (cl-tf2:orientation (btr:object-pose object-name))
-            (cl-tf2:euler->quaternion :ax 0 :ay (- (/ pi 2)) :az 0))))
+            (cl-tf2:euler->quaternion :ax 0 :ay (/ pi 2) :az 0))))
     (print "front")
     (execute-change-side object-type arm grasp
                          (place-pose-stability-adjustment orientation object-type object-name 0))))
@@ -125,7 +123,7 @@
   (let* ((orientation
            (cl-tf2:q*
             (cl-tf2:orientation (btr:object-pose object-name))
-            (cl-tf2:euler->quaternion :ax 0 :ay (/ pi 2) :az 0))))
+            (cl-tf2:euler->quaternion :ax 0 :ay (-(/ pi 2)) :az 0))))
     (print "left-adjusted")
     (execute-change-side object-type arm grasp
                          (place-pose-stability-adjustment orientation object-type object-name 0)))
@@ -170,17 +168,17 @@
                 (?arm :left))           
            (let* ((plan (path-plan-next-side (side-changes
                                               (locate-sides ?sides-transformed ?object-vector))
-                                             (car ?sides-base))))
-             ;;(exe:perform
-             ;; (desig:an action
-             ;;         (:type :changing-side)
-             ;;         (:object-name ?object-name)
-             ;;         (:object-type ?object-type)
-             ;;         (:arm ?arm)
-             ;;         (:grasp ?grasp)
-             ;;         (:change-to-side ?goal-side)
-             ;;         (:sides-transformed ?sides-transformed)
-             ;;         (:object-vector ?object-vector)))
+                                             ?goal-side)))
+             (exe:perform
+              (desig:an action
+                      (:type :changing-side)
+                      (:object-name ?object-name)
+                      (:object-type ?object-type)
+                      (:arm ?arm)
+                      (:grasp ?grasp)
+                      (:change-to-side ?goal-side)
+                      (:sides-transformed ?sides-transformed)
+                      (:object-vector ?object-vector)))
              (setf ?sides-transformed (transforms-map-t-side ?object-name ?sides-base))
              (print plan)))
            (cpl:retry))
@@ -228,3 +226,21 @@
            ?target-pose-test
            ))))))
 
+
+(def-fact-group sides-predicates (opposite)
+  (<- (connection front right))
+  (<- (connection front left))
+  (<- (connection front top))
+  (<- (connection front bottom))
+  (<- (connection back right))
+  (<- (connection back left))
+  (<- (connection back top))
+  (<- (connection back bottom))
+  (<- (connection top left))
+  (<- (connection top right))
+  (<- (connection bottom left))
+  (<- (connection bottom right))
+  
+  (<- (opposite :top :bottom))
+  (<- (opposite :left :right))
+  (<- (opposite :front :back)))
