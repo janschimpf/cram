@@ -119,9 +119,7 @@
   (print "moved")
 
   (grasp-object ?object-type :left
-                (caaar (cddr
-                        (locate-sides ?sides-transformed
-                                      (origin->list ?name)))) *spawn-area*)
+                (caddr (locate-sides ?sides-transformed (origin->list ?name))) *spawn-area*)
   (move *place-nav-pose*)
   (place-object *place-pose* :left)
   

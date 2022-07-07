@@ -80,7 +80,7 @@
 
 
 (defun side-check (side-to-be object-vector side-list)
-  (let ((side-as-is (caaar (locate-sides side-list object-vector))))
+  (let ((side-as-is (car (locate-sides side-list object-vector))))
     (print side-to-be)
     (print side-as-is)
         (if (equal side-to-be side-as-is)
