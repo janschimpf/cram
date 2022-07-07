@@ -92,7 +92,7 @@
 (defun path-second-step (move-list goal)
   (let ((new-sides (car (reverse (car move-list)))))
     (print new-sides)
-    (let ((second-move (check-sides-moves (side-changes new-sides) goal)))
+    (let ((second-move (caar (check-sides-moves (side-changes new-sides) goal))))
       (list (first (car move-list)) second-move))))
 
 
