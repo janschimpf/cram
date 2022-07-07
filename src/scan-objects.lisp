@@ -113,3 +113,6 @@
 (defun pose-to-vector-list (pose)
    (cram-tf:3d-vector->list (cl-tf2:origin pose)))
 
+
+(defun shortest-distance-between-all-sides (side-list xyz-list)
+  (shortest-distance (distances-for-side-list side-list xyz-list)))

@@ -1,5 +1,6 @@
 (in-package :cashier)
 
+;; =======side-changing ===================
 (defun side-changes (side-list)
   (let* ((bottom (caar (first side-list)))
          (right (caar (second side-list)))
@@ -27,28 +28,52 @@
 
 (defun opposite-short (side)
   (cdaar (prolog:prolog `(or (opposite ,side ?x)
-                              (opposite ?x ,side)))))
+                             (opposite ?x ,side)))))
 
+
+(def-fact-group sides-predicates (opposite)
+  (<- (connection front right))
+  (<- (connection front left))
+  (<- (connection front top))
+  (<- (connection front bottom))
+  (<- (connection back right))
+  (<- (connection back left))
+  (<- (connection back top))
+  (<- (connection back bottom))
+  (<- (connection top left))
+  (<- (connection top right))
+  (<- (connection bottom left))
+  (<- (connection bottom right))
+  
+  (<- (opposite :top :bottom))
+  (<- (opposite :left :right))
+  (<- (opposite :front :back)))
+
+
+
+;; ================locating the current-side================
 
 ;;returns relative bottom, right and front sides in form of a list.
 (defun locate-sides (side-list object-vector)
-  (let* ((right-list (vector-offset object-vector 0 -0.05 0))
-         (front-list (vector-offset object-vector -0.05 0 0))
-         (scan-list  (vector-offset object-vector 0 0 -0.05)))
+  (let* ((right-list (vector-offset object-vector (list 0 -0.05 0)))
+         (front-list (vector-offset object-vector (list -0.05 0 0)))
+         (scan-list  (vector-offset object-vector (list 0 0 -0.05))))
     (let* ((right (shortest-distance-between-all-sides side-list right-list))
            (front (shortest-distance-between-all-sides side-list front-list))
            (bottom (shortest-distance-between-all-sides side-list scan-list)))
     (list bottom right front)
     )))
 
-(defun vector-offset (vector x-off y-off z-off)
-  (list (+ (first vector) x-off)
-        (+ (second vector) y-off)
-        (+ (third vector) z-off)
-  ))
+(defun vector-offset (vector offset-list)
+  (let ((x (first offset-list))
+        (y (second offset-list))
+        (z (third offset-list)))
+  (list (+ (first vector) x)
+        (+ (second vector) y)
+        (+ (third vector) z))))
 
-(defun shortest-distance-between-all-sides (side-list xyz-list)
-  (shortest-distance (distances-for-side-list side-list xyz-list)))
+
+;; ============ planning for which moves to do to change a side ==============
 
 
 ;; plans the path between the current bottom side and the side that should be scanned next
@@ -73,6 +98,8 @@
 
 
 
+;; ============= executing the path plan ====================
+
 ;; executes the path plan 
 (defun change-side (&key
                       ((:plan ?plan))
@@ -91,7 +118,7 @@
              ((string-equal "front-turn" move) (front-turn ?object-type ?arm ?grasp ?object-name))
              ((string-equal "back-turn" move) (back-turn ?object-type ?arm ?grasp ?object-name))
              (t (print move)))))
-)  
+  
 (defun right-turn (object-type arm grasp object-name)
   (let* ((orientation (cl-tf2:q*
             (cl-tf2:orientation (btr:object-pose object-name))
@@ -129,17 +156,9 @@
                          (place-pose-stability-adjustment orientation object-type object-name 0)))
 )
 
+
 (defun origin->list (object-name)
     (cram-tf:3d-vector->list (cl-tf2:origin (btr:object-pose object-name))))
-  
-
-(defun adjust-height (bottom-side object-size)
-  (cond
-    ((or (string-equal "right" bottom-side) (string-equal "left" bottom-side)) +0.05)
-    ((or (string-equal "front" bottom-side) (string-equal "back" bottom-side)) +0.05)
-    ((or (string-equal "top" bottom-side) (string-equal "top" bottom-side)) 0)
-    (t (print "something went wrong when adjusting the height")  
-  )))
 
 ;; iterates over the to scan sides.
 ;; first gets the current bottom side, front side and right side
@@ -190,7 +209,7 @@
 ;;3-sides
 ;;list of sides of the 
 
-(defun execute-change-side (object-type arm grasp target-pose)
+(defun execute-change-side (?object-type arm grasp target-pose)
 
   (grasp-object ?object-type
                 arm grasp *place-pose*)
@@ -203,6 +222,9 @@
   (proj-reasoning:check-placing-pose-stability
    object-desig
    placing-location))
+
+
+;;; ===== pose changes for placing the object with a different orientation / side ======
 
 (defun place-pose-stability-adjustment (orientation object-type object-name offset-start)
   (let ((offset offset-start))
@@ -218,7 +240,7 @@
 
        (let* ((target-pose
            (cl-tf2:make-pose-stamped "map" 0 
-           (cram-tf:list->3d-vector (vector-offset (origin->list object-name) 0 0 offset))
+           (cram-tf:list->3d-vector (vector-offset (origin->list object-name) (list 0 0 offset)))
            orientation )))
          (let ((?target-pose-test (btr:ensure-pose target-pose)))
            (shortcut-pose-stability (object-desig-shortcut object-type)
@@ -226,21 +248,59 @@
            ?target-pose-test
            ))))))
 
+(defun orientation-change (object-name move)
+  (cond
+    ((string-equal "right-turn" move)
+     (cl-tf2:q*
+            (cl-tf2:orientation (btr:object-pose object-name))
+            (cl-tf2:euler->quaternion :ax (/ pi 2) :ay 0 :az 0)))
+    ((string-equal  "left-turn" move)
+     (cl-tf2:q*
+            (cl-tf2:orientation (btr:object-pose object-name))
+            (cl-tf2:euler->quaternion :ax (-(/ pi 2)) :ay 0 :az 0)))
+    ((string-equal "front-turn" move)
+     (cl-tf2:q*
+            (cl-tf2:orientation (btr:object-pose object-name))
+            (cl-tf2:euler->quaternion :ax 0 :ay (/ pi 2) :az 0)))
+    ((string-equal "back-turn" move)
+     (cl-tf2:q*
+            (cl-tf2:orientation (btr:object-pose object-name))
+            (cl-tf2:euler->quaternion :ax 0 :ay (- (/ pi 2)) :az 0)))
+   (t (print "not recognised move / something went wrong, orientation-change"))))
 
-(def-fact-group sides-predicates (opposite)
-  (<- (connection front right))
-  (<- (connection front left))
-  (<- (connection front top))
-  (<- (connection front bottom))
-  (<- (connection back right))
-  (<- (connection back left))
-  (<- (connection back top))
-  (<- (connection back bottom))
-  (<- (connection top left))
-  (<- (connection top right))
-  (<- (connection bottom left))
-  (<- (connection bottom right))
-  
-  (<- (opposite :top :bottom))
-  (<- (opposite :left :right))
-  (<- (opposite :front :back)))
+
+(defun vector-change (place-area bottom-side object-size)
+  (let ((object-depth (first object-size))
+        (object-width (second object-size))
+        (object-height (third object-size)))
+
+  (cond
+    ((equal :right bottom-side)
+     (vector-offset place-area
+                    (list 0 0 (-(+ (/ object-height 2) object-depth)))))
+    ((equal :left bottom-side)
+     (vector-offset place-area
+                    (list 0 0 (-(+ (/ object-height 2) object-depth)))))
+    ((equal :top bottom-side)
+     (vector-offset place-area
+                    (list 0 0 (+ (/ object-height 2)))))
+    ((equal :bottom bottom-side)
+     (vector-offset place-area
+                    (list 0 0 0)))
+    ((equal :front bottom-side)
+     (vector-offset place-area
+                    (list 0 0 (- (+ (/ object-height 2) object-width)))))
+    ((equal :back bottom-side)
+     (vector-offset place-area
+                    (list 0 0 (-(+ (/ object-height 2) object-width)))))
+    (t (print "not sure how we got here but something is wrong, vector-change")))))
+
+(defun 3dvec-ori->pose (3d-vector orientation)
+  (cl-tf2:make-pose-stamped "map" 0
+                            3d-vector
+                            orientation))
+
+(defun list->3d-vector (list)
+  (cl-tf2:make-3d-vector (first list)
+                         (second list)
+                         (third list)))
