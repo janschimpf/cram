@@ -1,5 +1,6 @@
 (in-package :cashier)
 
+(defparameter *sides-log* '(nil))
 
 (defun get-scan-area ()
   (cl-transforms-stamped:make-pose-stamped
@@ -29,10 +30,6 @@
                         side-list)))
       side)))
 
-
-(defun change-side-list-to-map (side-list)
-  (mapcar (lambda (x) (list (first x) (second x))) side-list))
-
 (defun scan (object-name side side-list)
   (let ((scan-area-vector (first (cram-tf:pose->list
                                   (cram-tf::pose-stamped->pose (get-scan-area)))))
@@ -49,18 +46,15 @@
                           "Object has the correct rotation and so the code was scaned")
         (roslisp:ros-info (scan-object)
                           "Object has the wrong rotation"))
-    (print 
     (if (and (side-check side object-vector side-list)
              (x-y-z-pose-check scan-area-vector object-vector))
         t
         nil
         )
-  )))
+  ))
 
 
 (defun x-y-z-pose-check (scan-area-vector object-vector)
-  (print scan-area-vector)
-  (print object-vector)
   (let*  ((scan-x (first scan-area-vector))
          (scan-y (second scan-area-vector))
          (scan-z (third scan-area-vector))
@@ -81,8 +75,7 @@
 
 (defun side-check (side-to-be object-vector side-list)
   (let ((side-as-is (car (locate-sides side-list object-vector))))
-    (print side-to-be)
-    (print side-as-is)
+    (setf *sides-log* (cons (list side-as-is) *sides-log*))
         (if (equal side-to-be side-as-is)
             t
             nil
@@ -90,8 +83,7 @@
 
 
 (defun distances-for-side-list (side-list scan-vector)
-  (let ((map-side-list (change-side-list-to-map side-list)))
-    
+  (let ((map-side-list (change-side-list-to-map side-list)))   
    (mapcar (lambda (x) (list (first x)
                              (distance-between-vectors scan-vector
                                                        (pose-to-vector-list (second x)))))

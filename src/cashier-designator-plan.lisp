@@ -73,72 +73,9 @@
         (+ (third vector) z))))
 
 
-;; ============ planning for which moves to do to change a side ==============
-
-
-;; plans the path between the current bottom side and the side that should be scanned next
-;; then returns said path (list were the movement are the elements)
-(defun path-plan-next-side (side-list goal) ;;(current-side next-side side-list object-vector)
-  (let ((sorted-sides-list (check-sides-moves side-list goal)))
-    (if (null sorted-sides-list)
-        (path-second-step side-list goal)
-     (list (first (car sorted-sides-list))))))
-
-(defun check-sides-moves (sides-list goal)
-  (remove nil (mapcar (lambda (x)
-                        (if (equal goal (second x)) x))
-                      sides-list)))
-
-(defun path-second-step (move-list goal)
-  (let ((new-sides (car (reverse (car move-list)))))
-    (print new-sides)
-    (let ((second-move (caar (check-sides-moves (side-changes new-sides) goal))))
-      (list (first (car move-list)) second-move))))
-
-
-
 ;; ============= executing the path plan ====================
 
 ;; executes the path plan 
-
-  
-(defun right-turn (object-type arm grasp object-name)
-  (let* ((orientation (cl-tf2:q*
-            (cl-tf2:orientation (btr:object-pose object-name))
-            (cl-tf2:euler->quaternion :ax (/ pi 2) :ay 0 :az 0))))
-    (print "right")
-    (execute-change-side object-type arm grasp
-                         (place-pose-stability-adjustment orientation object-type object-name 0))))
-
-(defun left-turn (object-type arm grasp object-name)
-  (let* ((orientation (cl-tf2:q*
-            (cl-tf2:orientation (btr:object-pose object-name))
-            (cl-tf2:euler->quaternion :ax (- (/ pi 2)) :ay 0 :az 0))))
-    
-    (print "left")
-
-    (execute-change-side object-type arm grasp
-                         (place-pose-stability-adjustment orientation object-type object-name 0))))
-
-(defun front-turn (object-type arm grasp object-name)
-  (let* ((orientation
-           (cl-tf2:q*
-            (cl-tf2:orientation (btr:object-pose object-name))
-            (cl-tf2:euler->quaternion :ax 0 :ay (/ pi 2) :az 0))))
-    (print "front")
-    (execute-change-side object-type arm grasp
-                         (place-pose-stability-adjustment orientation object-type object-name 0))))
-
-(defun back-turn (object-type arm grasp object-name)
-  (let* ((orientation
-           (cl-tf2:q*
-            (cl-tf2:orientation (btr:object-pose object-name))
-            (cl-tf2:euler->quaternion :ax 0 :ay (-(/ pi 2)) :az 0))))
-    (print "left-adjusted")
-    (execute-change-side object-type arm grasp
-                         (place-pose-stability-adjustment orientation object-type object-name 0)))
-)
-
 
 (defun origin->list (object-name)
     (cram-tf:3d-vector->list (cl-tf2:origin (btr:object-pose object-name))))
@@ -149,28 +86,27 @@
 (defun scan-object (&key
                       ((:object-type ?object-type))
                       ((:object-name ?object-name))
+                      ((:object-size ?object-size))
                       ((:goal-side ?goal-side))
                       ((:sides-base ?sides-base))
                       ((:sides-transformed ?sides-transformed))
+                      ((:sides-to-check ?sides-to-check))
                     &allow-other-keys)
   
   (declare (type keyword ?object-type ?goal-side)
-           (type list ?sides-base ?sides-transformed)
+           (type list ?sides-base ?sides-transformed ?object-size ?sides-to-check)
            (type symbol ?object-name))
-  (print ?sides-transformed)
-  (setf ?sides-transformed (transforms-map-t-side ?object-name ?sides-base))
-  (cpl:with-retry-counters ((scan-counter-retries 6))
+  (cpl:with-retry-counters ((scan-counter-retries (length ?sides-to-check)))
     (cpl:with-failure-handling 
     ((common-fail:high-level-failure (e)
        (roslisp:ros-warn (cashier-demo) "Falure happend: ~a~% adjusting place postion" e)
        (cpl:do-retry scan-counter-retries
+         (setf ?sides-to-check (cdr ?sides-to-check))
          (let* ((?object-vector (cram-tf:3d-vector->list
                                 (cl-tf2:origin (btr:object-pose ?object-name))))
                 (?grasp :front)
-                (?arm :left))           
-           (let* ((plan (path-plan-next-side (side-changes
-                                              (locate-sides ?sides-transformed ?object-vector))
-                                             ?goal-side)))
+                (?arm :left)
+                (?check-side (first ?sides-to-check)))
              (exe:perform
               (desig:an action
                       (:type :changing-side)
@@ -178,11 +114,11 @@
                       (:object-type ?object-type)
                       (:arm ?arm)
                       (:grasp ?grasp)
-                      (:change-to-side ?goal-side)
+                      (:change-to-side ?check-side)
                       (:sides-transformed ?sides-transformed)
+                      (:object-size ?object-size)
                       (:object-vector ?object-vector)))
-             (setf ?sides-transformed (transforms-map-t-side ?object-name ?sides-base))
-             (print plan)))
+           (setf ?sides-transformed (transforms-map-t-side ?object-name ?sides-base)))
            (cpl:retry))
        (cpl:fail 'common-fail:high-level-failure)))
       (if (not (scan ?object-name ?goal-side ?sides-transformed))
@@ -233,6 +169,8 @@
            ?target-pose-test
            ))))))
 
+
+;;takes care of the the needed orientation change to turn the object
 (defun orientation-change (object-name move)
   (cond
     ((string-equal "right-turn" move)
@@ -251,9 +189,11 @@
      (cl-tf2:q*
             (cl-tf2:orientation (btr:object-pose object-name))
             (cl-tf2:euler->quaternion :ax 0 :ay (- (/ pi 2)) :az 0)))
-   (t (print "not recognised move / something went wrong, orientation-change"))))
+   (t (print move))))
 
 
+;; takes care of the x-y-z pose when placing the object with the goal of not placing object
+;; inside the table
 (defun vector-change (place-vector bottom-side object-size)
   (let ((object-depth (first object-size))
         (object-width (second object-size))
@@ -261,10 +201,10 @@
   (cond
     ((equal :right bottom-side)
      (vector-offset place-vector
-                    (list 0 0 (-(+ (/ object-height 2) object-depth)))))
+                    (list 0 0 (- (+ (/ object-height 2) object-depth)))))
     ((equal :left bottom-side)
      (vector-offset place-vector
-                    (list 0 0 (-(+ (/ object-height 2) object-depth)))))
+                    (list 0 0 (- (+ (/ object-height 2) object-depth)))))
     ((equal :top bottom-side)
      (vector-offset place-vector
                     (list 0 0 (+ (/ object-height 2)))))
@@ -276,39 +216,27 @@
                     (list 0 0 (- (+ (/ object-height 2) object-width)))))
     ((equal :back bottom-side)
      (vector-offset place-vector
-                    (list 0 0 (-(+ (/ object-height 2) object-width)))))
+                    (list 0 0 (- (+ (/ object-height 2) object-width)))))
     (t (print "not sure how we got here but something is wrong, vector-change")))))
-
-
-(defun 3dvec-ori->pose (3d-vector orientation)
-  (cl-tf2:make-pose-stamped "map" 0
-                            3d-vector
-                            orientation))
-
 
 (defun change-side (&key
                       ((:plan ?plan))
                       ((:object-type ?object-type))
                       ((:object-name ?object-name))
+                      ((:object-size ?object-size))
                       ((:arm ?arm))
                       ((:grasp ?grasp))
                     &allow-other-keys)
-  (declare (type list ?plan)
+  (declare (type list ?plan ?object-size)
            (type keyword ?arm ?grasp ?object-type)
            (type symbol ?object-name))
-  ;;(loop for move in ?plan
-  ;;      do (cond
-  ;;           ((string-equal "right-turn" move) (right-turn ?object-type ?arm ?grasp ?object-name))
-  ;;           ((string-equal  "left-turn" move) (left-turn ?object-type ?arm ?grasp ?object-name))
-  ;;           ((string-equal "front-turn" move) (front-turn ?object-type ?arm ?grasp ?object-name))
-  ;;           ((string-equal "back-turn" move) (back-turn ?object-type ?arm ?grasp ?object-name))
-  ;;           (t (print move))
-  (loop for move in ?plan
+  (print ?plan)
+  (loop for move in (remove nil ?plan)
         do
            (let ((3d-list (vector-change
                            (cram-tf:3d-vector->list (cl-tf2:origin *place-pose*))
                              :bottom
-                             (list 0.1 0.1 0.1)))
+                             ?object-size))
                  (orientation (orientation-change ?object-name move)))
              (let ((target
                      (place-pose-stability-adjustment
@@ -317,5 +245,6 @@
                       ?object-type
                       ?object-name
                       0)))
-               (execute-change-side ?object-type ?arm ?grasp target)))))
+               (execute-change-side ?object-type ?arm ?grasp target)
+               ))))
                
