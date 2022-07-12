@@ -1,7 +1,7 @@
 (in-package :cashier)
 
 (defparameter object-list-bottle
-  (list 'bottle-1 :bottle '((-2 2 0.75)(0 0 0 1)) :bottom))
+  (list 'bottle-1 :bottle '((-2 2 0.75)(0 0 0 1)) '(0.05 0.05 0.15) :bottom))
 
 (defparameter object-list-breakfast-cereal
   (list 'breakfast-cereal-1 :breakfast-cereal '((-2 2 0.75) (0 0 0 1)) '(0.05 0.15 0.2) :top))

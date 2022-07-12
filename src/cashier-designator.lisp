@@ -38,6 +38,20 @@
     (let ((second-move (caar (check-sides-moves (side-changes new-sides) goal))))
       (list (first (car move-list)) second-move))))
 
+(defun resolve-plan (plan)
+  (let ((new-plan nil))
+    (mapcar (lambda (x) (setf new-plan (append new-plan x)))
+            (mapcar (lambda (x)
+                      (cond
+                        ((string-equal "left-turn" x)
+                         (list "right-turn" "right-turn" "right-turn"))
+                        ((string-equal "front-turn" x)
+                         (list "back-turn" "back-turn" "back-turn"))
+                        (t (list x)))) plan))
+    new-plan))
+        
+          
+
 
 
 ;; ================ Designator def =================================
@@ -102,6 +116,7 @@
     (lisp-fun locate-sides ?sides-transformed ?object-vector ?located-sides)
     (lisp-fun side-changes ?located-sides ?side-changes)
     (lisp-fun path-plan-next-side ?side-changes ?side-goal ?plan)
+    ;;(lisp-fun resolve-plan ?plan ?resolved-plan)
 
     (desig:designator :action ((:type :changing-side)
                                (:object-name ?object-name)

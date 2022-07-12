@@ -36,7 +36,8 @@
         
         (object-vector (cram-tf:3d-vector->list
                         (cl-tf2:origin (btr:object-pose object-name)))))
-    
+        (setf *sides-log* (append (list side-as-is) *sides-log*))
+
     (if (x-y-z-pose-check scan-area-vector object-vector)
         (roslisp:ros-info (scan-object) "object is in the scan area")
         (roslisp:ros-info (scan-object) "object is not inside the scan area"))
@@ -75,7 +76,7 @@
 
 (defun side-check (side-to-be object-vector side-list)
   (let ((side-as-is (car (locate-sides side-list object-vector))))
-    (setf *sides-log* (cons (list side-as-is) *sides-log*))
+        (setf *sides-log* (append (list side-as-is) *sides-log*))
         (if (equal side-to-be side-as-is)
             t
             nil
@@ -88,6 +89,9 @@
                              (distance-between-vectors scan-vector
                                                        (pose-to-vector-list (second x)))))
            map-side-list)))
+
+(defun change-side-list-to-map (side-list)
+  (mapcar (lambda (x) (list (first x) (second x))) side-list))
 
 ;;gets two poses that are in relation to the map and then returns the
 ;;distance between these two poses

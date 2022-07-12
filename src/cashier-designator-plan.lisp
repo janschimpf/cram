@@ -96,6 +96,9 @@
   (declare (type keyword ?object-type ?goal-side)
            (type list ?sides-base ?sides-transformed ?object-size ?sides-to-check)
            (type symbol ?object-name))
+  (setf ?sides-transformed (transforms-map-t-side ?object-name ?sides-base))
+  (setf *sides-log* (append ?sides-to-check *sides-log*))
+
   (cpl:with-retry-counters ((scan-counter-retries (length ?sides-to-check)))
     (cpl:with-failure-handling 
     ((common-fail:high-level-failure (e)
@@ -104,9 +107,10 @@
          (setf ?sides-to-check (cdr ?sides-to-check))
          (let* ((?object-vector (cram-tf:3d-vector->list
                                 (cl-tf2:origin (btr:object-pose ?object-name))))
-                (?grasp :front)
                 (?arm :left)
                 (?check-side (first ?sides-to-check)))
+           (let* ((?grasp (reverse (locate-sides ?sides-transformed ?object-vector))))
+
              (exe:perform
               (desig:an action
                       (:type :changing-side)
@@ -118,20 +122,27 @@
                       (:sides-transformed ?sides-transformed)
                       (:object-size ?object-size)
                       (:object-vector ?object-vector)))
-           (setf ?sides-transformed (transforms-map-t-side ?object-name ?sides-base)))
+           (setf ?sides-transformed (transforms-map-t-side ?object-name ?sides-base))))
            (cpl:retry))
        (cpl:fail 'common-fail:high-level-failure)))
       (if (not (scan ?object-name ?goal-side ?sides-transformed))
-        (cpl:fail 'common-fail:high-level-failure)
-      ))))
+          (cpl:fail 'common-fail:high-level-failure))
+      T)))
 
 ;;3-sides
 ;;list of sides of the 
 
 (defun execute-change-side (?object-type arm grasp target-pose)
-
+  (cpl:with-retry-counters ((grasp-retry 2))
+    (cpl:with-failure-handling
+        ((common-fail:gripper-closed-completely (e) 
+           (roslisp:ros-warn (cashier-demo) "failure happened: ~a~% changing grasp" e)
+           (cpl:do-retry grasp-retry
+             (setf grasp (cdr grasp))
+             (cpl:retry))
+           (cpl:fail 'common-fail:high-level-failure)))
   (grasp-object ?object-type
-                arm grasp *place-pose*)
+                arm (first grasp) *place-pose*)))
   (place-object target-pose arm))
 
 (defun object-desig-shortcut (?object-type)
@@ -144,6 +155,19 @@
 
 
 ;;; ===== pose changes for placing the object with a different orientation / side ======
+
+(defun grasping-direction (located-side-list move)
+  (cond
+    ((string-equal "right-turn" move)
+    (print "test right-turn"))
+    ((string-equal "left-turn" move)
+     (print "test left-turn"))
+    ((string-equal "front-turn" move)
+     (print "test front-turn"))
+    ((string-equal "back-turn" move)
+     (print "test back-turn"))
+    (t (print "something went wrong")))
+  )
 
 (defun place-pose-stability-adjustment (orientation origin-list object-type object-name offset-start)
   (let ((offset offset-start))
@@ -227,10 +251,10 @@
                       ((:arm ?arm))
                       ((:grasp ?grasp))
                     &allow-other-keys)
-  (declare (type list ?plan ?object-size)
-           (type keyword ?arm ?grasp ?object-type)
+  (declare (type list ?plan ?object-size ?grasp)
+           (type keyword ?arm ?object-type)
            (type symbol ?object-name))
-  (print ?plan)
+ 
   (loop for move in (remove nil ?plan)
         do
            (let ((3d-list (vector-change
@@ -247,4 +271,4 @@
                       0)))
                (execute-change-side ?object-type ?arm ?grasp target)
                ))))
-               
+

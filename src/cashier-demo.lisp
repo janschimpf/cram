@@ -17,7 +17,7 @@
   (cl-transforms-stamped:make-pose-stamped
    "map"
    0.0
-   (cl-transforms:make-3d-vector -1.2 1.3 0)
+   (cl-transforms:make-3d-vector -1.2 1.4 0)
    (cl-transforms:euler->quaternion :ax 0 :ay 0 :az pi)))
 
 (defparameter *spawn-area*
@@ -29,7 +29,7 @@
 (defparameter *place-pose*
   (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
-   (cl-transforms:make-3d-vector -2 1.3 0.75)
+   (cl-transforms:make-3d-vector -2 1.2 0.75)
    (cl-transforms:make-quaternion 0 0 0 1)))
 
 (defparameter *after-scan-nav-pose*
@@ -112,7 +112,9 @@
                            (:object-name ?object-name)
                            (:object-type ?object-type)
                            (:object-size ?object-size)
-                           (:goal-side ?goal-side)))))))
+                           (:goal-side ?goal-side))))))
+  (print *sides-log*)
+  (setf *sides-log* nil))
 
 (defun cashier-object (&key
                          ((:object-type ?object-type))
@@ -137,21 +139,24 @@
   (move *place-nav-pose*)
   (place-object *place-pose* :left)
   
-  (exe:perform (desig:an action
+  (if (exe:perform (desig:an action
                          (:type :scanning)
                          (:object-name ?object-name)
                          (:object-type ?object-type)
                          (:object-size ?object-size)
                          (:goal-side ?goal-side)
                          (:sides-base ?sides-base)))
+      (sucessful-scan ?object-type ?object-name)
+  ))
+
+(defun sucessful-scan (?object-type ?object-name)
   (print "object was succesfully scanned")
   (grasp-object ?object-type :left
                 :front
                 *place-pose*)
   (move *after-scan-nav-pose*)
   (place-object (place-after-scan-positive ?object-name) :left)
-  (print *sides-log*))
-
+  )
   
 
 
