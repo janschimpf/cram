@@ -203,10 +203,10 @@
   (cond
     ((equal :right bottom-side)
      (vector-offset place-vector
-                    (list 0 (/ object-depth 2) 0)))
+                    (list 0 (- (/ object-depth 2)) 0)))
     ((equal :left bottom-side)
      (vector-offset place-vector
-                    (list 0 (- (/  object-depth 2)) 0)))
+                    (list 0 (/  object-depth 2) 0)))
     ((equal :top bottom-side)
      (vector-offset place-vector
                     (list 0 0 (- object-height))))
