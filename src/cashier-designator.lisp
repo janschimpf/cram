@@ -23,7 +23,7 @@
   (let ((sorted-sides-list (check-sides-moves side-list goal)))
     (if (null sorted-sides-list)
         (path-second-step side-list goal)
-     (list (first (car sorted-sides-list))))))
+     (remove nil (list (first (car sorted-sides-list)))))))
 
 (defun check-sides-moves (sides-list goal)
   (print goal)
@@ -34,8 +34,7 @@
 
 (defun path-second-step (move-list goal)
   (let ((new-sides (car (reverse (car move-list)))))
-    (print new-sides)
-    (let ((second-move (caar (check-sides-moves (side-changes new-sides) goal))))
+    (let ((second-move (remove nil (caar (check-sides-moves (side-changes new-sides) goal)))))
       (list (first (car move-list)) second-move))))
 
 (defun resolve-plan (plan)
@@ -43,10 +42,10 @@
     (mapcar (lambda (x) (setf new-plan (append new-plan x)))
             (mapcar (lambda (x)
                       (cond
-                        ((string-equal "left-turn" x)
-                         (list "right-turn" "right-turn" "right-turn"))
+                        ((string-equal "back-turn" x)
+                         (list "back-turn" "left-turn"))
                         ((string-equal "front-turn" x)
-                         (list "back-turn" "back-turn" "back-turn"))
+                         (list "front-turn" "right-turn"))
                         (t (list x)))) plan))
     new-plan))
         
@@ -116,7 +115,7 @@
     (lisp-fun locate-sides ?sides-transformed ?object-vector ?located-sides)
     (lisp-fun side-changes ?located-sides ?side-changes)
     (lisp-fun path-plan-next-side ?side-changes ?side-goal ?plan)
-    ;;(lisp-fun resolve-plan ?plan ?resolved-plan)
+    (lisp-fun resolve-plan ?plan ?resolved-plan)
 
     (desig:designator :action ((:type :changing-side)
                                (:object-name ?object-name)
@@ -124,7 +123,8 @@
                                (:object-size ?object-size)
                                (:arm ?arm)
                                (:grasp ?grasp)
-                               (:plan ?plan))
+                               (:plan ?resolved-plan)
+                               (:bottom-side ?side-goal))
                       
                       ?resolved-action-designator)))
 

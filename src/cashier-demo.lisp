@@ -147,6 +147,7 @@
                          (:goal-side ?goal-side)
                          (:sides-base ?sides-base)))
       (sucessful-scan ?object-type ?object-name)
+      (print "scan failed")
   ))
 
 (defun sucessful-scan (?object-type ?object-name)

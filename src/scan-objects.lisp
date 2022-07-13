@@ -5,7 +5,7 @@
 (defun get-scan-area ()
   (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
-   (cl-transforms:make-3d-vector -2 1.3 0.70)
+   (cl-transforms:make-3d-vector -2 1.2 0.70)
    (cl-transforms:make-quaternion 0 0 0 1)))
 
 ;;for changing the relation of the side-pose from the object to the map
@@ -36,7 +36,6 @@
         
         (object-vector (cram-tf:3d-vector->list
                         (cl-tf2:origin (btr:object-pose object-name)))))
-        (setf *sides-log* (append (list side-as-is) *sides-log*))
 
     (if (x-y-z-pose-check scan-area-vector object-vector)
         (roslisp:ros-info (scan-object) "object is in the scan area")
@@ -56,6 +55,8 @@
 
 
 (defun x-y-z-pose-check (scan-area-vector object-vector)
+  (print scan-area-vector)
+  (print object-vector)
   (let*  ((scan-x (first scan-area-vector))
          (scan-y (second scan-area-vector))
          (scan-z (third scan-area-vector))
@@ -64,7 +65,7 @@
           (object-z (third object-vector)))    
     (if (and (< (- scan-x 0.1) object-x)
              (< object-x  (+ scan-x 0.10))
-             (< (- scan-y 0.05) object-y)
+             (< (- scan-y 0.1) object-y)
              (< object-y  (+ scan-y 0.1))
              (< (- scan-z 0.1) object-z)
              (< object-z   (+ scan-z 0.15)))

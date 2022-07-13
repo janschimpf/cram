@@ -110,6 +110,8 @@
                 (?arm :left)
                 (?check-side (first ?sides-to-check)))
            (let* ((?grasp (reverse (locate-sides ?sides-transformed ?object-vector))))
+             (if (equal nil ?check-side)
+                 (cpl:fail 'common-fail:high-level-failure))
 
              (exe:perform
               (desig:an action
@@ -129,30 +131,6 @@
           (cpl:fail 'common-fail:high-level-failure))
       T)))
 
-;;3-sides
-;;list of sides of the 
-
-(defun execute-change-side (?object-type arm grasp target-pose)
-  (cpl:with-retry-counters ((grasp-retry 2))
-    (cpl:with-failure-handling
-        ((common-fail:gripper-closed-completely (e) 
-           (roslisp:ros-warn (cashier-demo) "failure happened: ~a~% changing grasp" e)
-           (cpl:do-retry grasp-retry
-             (setf grasp (cdr grasp))
-             (cpl:retry))
-           (cpl:fail 'common-fail:high-level-failure)))
-  (grasp-object ?object-type
-                arm (first grasp) *place-pose*)))
-  (place-object target-pose arm))
-
-(defun object-desig-shortcut (?object-type)
-  (desig:an object (type ?object-type)))
-
-(defun shortcut-pose-stability (object-desig placing-location)
-  (proj-reasoning:check-placing-pose-stability
-   object-desig
-   placing-location))
-
 
 ;;; ===== pose changes for placing the object with a different orientation / side ======
 
@@ -171,7 +149,7 @@
 
 (defun place-pose-stability-adjustment (orientation origin-list object-type object-name offset-start)
   (let ((offset offset-start))
-    (cpl:with-retry-counters ((pose-adjustment-retries 100))
+    (cpl:with-retry-counters ((pose-adjustment-retries 15))
     (cpl:with-failure-handling 
     ((common-fail:high-level-failure (e)
        (roslisp:ros-warn (cashier-demo) "Falure happend: ~a~% adjusting place postion" e)
@@ -225,23 +203,54 @@
   (cond
     ((equal :right bottom-side)
      (vector-offset place-vector
-                    (list 0 0 (- (+ (/ object-height 2) object-depth)))))
+                    (list 0 (/ object-depth 2) 0)))
     ((equal :left bottom-side)
      (vector-offset place-vector
-                    (list 0 0 (- (+ (/ object-height 2) object-depth)))))
+                    (list 0 (- (/  object-depth 2)) 0)))
     ((equal :top bottom-side)
      (vector-offset place-vector
-                    (list 0 0 (+ (/ object-height 2)))))
+                    (list 0 0 (- object-height))))
     ((equal :bottom bottom-side)
      (vector-offset place-vector
                     (list 0 0 0)))
     ((equal :front bottom-side)
      (vector-offset place-vector
-                    (list 0 0 (- (+ (/ object-height 2) object-width)))))
+                    (list 0 (- (/  object-width 2)) 0)))
     ((equal :back bottom-side)
      (vector-offset place-vector
-                    (list 0 0 (- (+ (/ object-height 2) object-width)))))
+                    (list 0 (/  object-width 2) 0)))
     (t (print "not sure how we got here but something is wrong, vector-change")))))
+
+;;3-sides
+;;list of sides of the 
+
+(defun execute-change-side (?object-type arm grasp target-pose)
+  (cpl:with-retry-counters ((grasp-retry 2))
+    (cpl:with-failure-handling
+        ((common-fail:gripper-closed-completely (e) 
+           (roslisp:ros-warn (cashier-demo) "failure happened: ~a~% changing grasp" e)
+           (cpl:do-retry grasp-retry
+             (setf grasp (cdr grasp))
+             (cpl:retry)))
+         (desig:designator-error (e)
+           (roslisp:ros-warn (cashier-demo) "designator-reference-failure ~a~%" e)
+           (cpl:do-retry grasp-retry
+           (setf grasp (cdr grasp))
+           (cpl:retry))
+           (cpl:fail 'common-fail:high-level-failure)))
+                             
+  (grasp-object ?object-type
+                arm (first grasp) *place-pose*)))
+  (place-object target-pose arm))
+
+(defun object-desig-shortcut (?object-type)
+  (desig:an object (type ?object-type)))
+
+(defun shortcut-pose-stability (object-desig placing-location)
+  (proj-reasoning:check-placing-pose-stability
+   object-desig
+   placing-location))
+
 
 (defun change-side (&key
                       ((:plan ?plan))
@@ -250,16 +259,18 @@
                       ((:object-size ?object-size))
                       ((:arm ?arm))
                       ((:grasp ?grasp))
+                      ((:bottom-side ?bottom))
                     &allow-other-keys)
   (declare (type list ?plan ?object-size ?grasp)
-           (type keyword ?arm ?object-type)
+           (type keyword ?arm ?object-type ?bottom)
            (type symbol ?object-name))
+  (print ?bottom)
  
   (loop for move in (remove nil ?plan)
         do
            (let ((3d-list (vector-change
                            (cram-tf:3d-vector->list (cl-tf2:origin *place-pose*))
-                             :bottom
+                             ?bottom
                              ?object-size))
                  (orientation (orientation-change ?object-name move)))
              (let ((target
