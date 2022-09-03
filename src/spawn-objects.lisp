@@ -1,12 +1,22 @@
 (in-package :cashier)
 
 (defparameter object-list-bottle
-  (list 'bottle-1 :bottle '((-2 2 0.75)(0 0 0 1)) '(0.05 0.05 0.15) :bottom))
+  (list 'bottle-1 :bottle
+        '((-2 2 0.75)(0 0 0 1)) '(0.05 0.05 0.15) :bottom))
+
+
+(defparameter object-list-pringles
+  (list 'pringle-1 :pringle
+        '((-2 2 0.75)(0 0 0 1)) '(0.05 0.05 0.15) :bottom))
+
 
 (defparameter object-list-breakfast-cereal
-  (list 'breakfast-cereal-1 :breakfast-cereal '((-2 2 0.75) (0 0 0 1)) '(0.05 0.15 0.2) :back))
+  (list 'breakfast-cereal-1 :breakfast-cereal
+        '((-2 2 0.75) (0 0 0 1)) '(0.05 0.15 0.2) :front))
 
-(defparameter spawn-objects-list (list object-list-breakfast-cereal))
+(defparameter spawn-objects-list (list object-list-breakfast-cereal
+                                       ;;object-list-bottle
+                                       ))
 
 (defun spawn-object-on-counter-general (list)
   (let ((name (first list))

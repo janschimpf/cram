@@ -1,6 +1,8 @@
 (in-package :cashier)
 
 ;; =======side-changing ===================
+;; returns the bototm side and then a list of
+;; the bottom, right and front sides in that order
 (defun side-changes (side-list)
   (print "side-list")
   (print side-list)
@@ -17,14 +19,32 @@
                       bottom
                       front))
           
-          (list "front-turn" (opposite-short front)
+          (list "back-turn" (opposite-short front)
                 (list (opposite-short front)
-                      front
+                      right
                       bottom))
-          (list "back-turn" front
+          
+          (list "front-turn" front
                 (list front
-                      bottom
-                      (opposite-short right))))))
+                      right
+                      (opposite-short bottom)))
+          
+          (list "flip" (opposite-short bottom)
+                (list (opposite-short bottom)
+                      right
+                      (opposite-short front)))
+          
+          (list "left-rotation" bottom
+                (list bottom
+                      (opposite-short front)
+                      (opposite-short right)))
+          
+          (list "right-rotation" bottom
+                (list bottom
+                      (opposite-short front)
+                      right))
+
+          )))
 
 (defun opposite-short (side)
   (cdaar (prolog:prolog `(or (opposite ,side ?x)
@@ -56,7 +76,7 @@
 ;;returns relative bottom, right and front sides in form of a list.
 (defun locate-sides (side-list object-vector)
   (let* ((right-list (vector-offset object-vector (list 0 -0.05 0)))
-         (front-list (vector-offset object-vector (list -0.05 0 0)))
+         (front-list (vector-offset object-vector (list +0.05 0 0)))
          (scan-list  (vector-offset object-vector (list 0 0 -0.05))))
     (let* ((right (caar (shortest-distance-between-all-sides side-list right-list)))
            (front (caar (shortest-distance-between-all-sides side-list front-list)))
@@ -86,6 +106,7 @@
 (defun scan-object (&key
                       ((:object-type ?object-type))
                       ((:object-name ?object-name))
+                      ((:arm ?arm))
                       ((:object-size ?object-size))
                       ((:goal-side ?goal-side))
                       ((:sides-base ?sides-base))
@@ -94,23 +115,25 @@
                     &allow-other-keys)
   
   (declare (type keyword ?object-type ?goal-side)
-           (type list ?sides-base ?sides-transformed ?object-size ?sides-to-check)
+           (type list ?sides-base ?sides-transformed ?object-size ?sides-to-check ?arm)
            (type symbol ?object-name))
   (setf ?sides-transformed (transforms-map-t-side ?object-name ?sides-base))
-  (setf *sides-log* (append ?sides-to-check *sides-log*))
 
   (cpl:with-retry-counters ((scan-counter-retries (length ?sides-to-check)))
     (cpl:with-failure-handling 
     ((common-fail:high-level-failure (e)
        (roslisp:ros-warn (cashier-demo) "Falure happend: ~a~% adjusting place postion" e)
        (cpl:do-retry scan-counter-retries
-         (setf ?sides-to-check (cdr ?sides-to-check))
          (let* ((?object-vector (cram-tf:3d-vector->list
                                 (cl-tf2:origin (btr:object-pose ?object-name))))
-                (?arm :left)
-                (?check-side (first ?sides-to-check)))
-           (let* ((?grasp (reverse (locate-sides ?sides-transformed ?object-vector))))
-             (if (equal nil ?check-side)
+                (?located-sides (locate-sides ?sides-transformed ?object-vector)))
+
+           (setf ?sides-to-check (remove-element-from-list ?sides-to-check
+                                                           (first ?located-sides)))
+
+           (let* ((?check-side (next-side-to-check ?located-sides ?sides-to-check)))
+
+           (if (equal nil ?check-side)
                  (cpl:fail 'common-fail:high-level-failure))
 
              (exe:perform
@@ -119,8 +142,8 @@
                       (:object-name ?object-name)
                       (:object-type ?object-type)
                       (:arm ?arm)
-                      (:grasp ?grasp)
                       (:change-to-side ?check-side)
+                      (:sides-base ?sides-base)
                       (:sides-transformed ?sides-transformed)
                       (:object-size ?object-size)
                       (:object-vector ?object-vector)))
@@ -131,21 +154,26 @@
           (cpl:fail 'common-fail:high-level-failure))
       T)))
 
+(defun next-side-to-check (located-sides sides-to-check)
+  (let* ((right (second located-sides))
+         (left (opposite-short (second located-sides)))
+         (top (opposite-short (first located-sides)))
+         (front (third located-sides))
+         (back (opposite-short (third located-sides)))
+         (side-list (list right left top front back)))
+    ;; check list if element(s) are part of sides-to-check
+    ;; first element that is in the side-to-check list is the one we target next
+    (loop for x in side-list
+          do
+             (when (not (null (member x sides-to-check)))
+               (return x)))))
+
+
+(defun which-side-to-grasp (located-sides change-direction)
+  )
+  
 
 ;;; ===== pose changes for placing the object with a different orientation / side ======
-
-(defun grasping-direction (located-side-list move)
-  (cond
-    ((string-equal "right-turn" move)
-    (print "test right-turn"))
-    ((string-equal "left-turn" move)
-     (print "test left-turn"))
-    ((string-equal "front-turn" move)
-     (print "test front-turn"))
-    ((string-equal "back-turn" move)
-     (print "test back-turn"))
-    (t (print "something went wrong")))
-  )
 
 (defun place-pose-stability-adjustment (orientation origin-list object-type object-name offset-start)
   (let ((offset offset-start))
@@ -177,22 +205,87 @@
   (cond
     ((string-equal "right-turn" move)
      (cl-tf2:q*
-            (cl-tf2:orientation (btr:object-pose object-name))
-            (cl-tf2:euler->quaternion :ax (/ pi 2) :ay 0 :az 0)))
-    ((string-equal  "left-turn" move)
+      (cl-tf2:orientation (btr:object-pose object-name))
+      (cl-tf2:euler->quaternion :ax (/ pi 2) :ay 0 :az 0)))
+    
+    ((string-equal "left-turn" move)
      (cl-tf2:q*
-            (cl-tf2:orientation (btr:object-pose object-name))
-            (cl-tf2:euler->quaternion :ax (-(/ pi 2)) :ay 0 :az 0)))
+      (cl-tf2:orientation (btr:object-pose object-name))
+      (cl-tf2:euler->quaternion :ax (-(/ pi 2)) :ay 0 :az 0)))
+    
     ((string-equal "front-turn" move)
      (cl-tf2:q*
-            (cl-tf2:orientation (btr:object-pose object-name))
-            (cl-tf2:euler->quaternion :ax 0 :ay (/ pi 2) :az 0)))
+      (cl-tf2:orientation (btr:object-pose object-name))
+      (cl-tf2:euler->quaternion :ax 0 :ay 0 :az (/ pi 2))))
+    
     ((string-equal "back-turn" move)
      (cl-tf2:q*
-            (cl-tf2:orientation (btr:object-pose object-name))
-            (cl-tf2:euler->quaternion :ax 0 :ay (- (/ pi 2)) :az 0)))
-   (t (print move))))
+      (cl-tf2:orientation (btr:object-pose object-name))
+      (cl-tf2:euler->quaternion :ax 0 :ay 0 :az (- (/ pi 2)))))
+    
+    ((string-equal "flip" move)
+     (cl-tf2:orientation (btr:object-pose object-name))
+     (cl-tf2:euler->quaternion :ax 0 :ay 0 :az pi))
 
+    ((string-equal "left-rotation" move)
+     (cl-tf2:orientation (btr:object-pose object-name))
+     (cl-tf2:euler->quaternion :ax 0 :ay (-(/ pi 2)) :az 0))
+
+    ((string-equal "right-rotation" move)
+     (cl-tf2:orientation (btr:object-pose object-name))
+     (cl-tf2:euler->quaternion :ax 0 :ay (/ pi 2) :az 0))
+
+  (t (print move))))
+
+
+(defun orientation-change-new (object-name move bottom-side)
+  (let* ((turn
+           (cond
+             ((string-equal "right-turn" move)
+              (list (/ pi 2) 0  0))
+             ((string-equal "left-turn" move)
+              (list (-(/ pi 2)) 0 0))
+             ((string-equal "back-turn" move)
+              (list 0 0 (/ pi 2)))
+             ((string-equal "front-turn" move)
+              (list 0 0 (- (/ pi 2))))
+             ((string-equal "flip" move)
+              (list 0 0 pi))
+             ((string-equal "left-roation" move)
+              (list 0 (- (/ pi 2)) 0))
+             ((string-equal "back-turn" move)
+              (list 0 (/ pi 2) 0))
+             (t (print move))))) ;; change into throwing error
+    (cond
+      ((or (string-equal "bottom" bottom-side)
+           (string-equal "top" bottom-side))
+       (cl-tf2:q*
+            (cl-tf2:orientation (btr:object-pose object-name))
+            (cl-tf2:euler->quaternion
+             :ax (first turn)
+             :ay (second turn)
+             :az (third turn))))
+      
+      ((or (string-equal "left" bottom-side)
+           (string-equal "right" bottom-side))
+       (cl-tf2:q*
+            (cl-tf2:orientation (btr:object-pose object-name))
+            (cl-tf2:euler->quaternion
+             :ax (first turn)
+             :ay (third turn)
+             :az (second turn))))
+      
+      ((or (string-equal "front" bottom-side)
+           (string-equal "back" bottom-side))
+       (cl-tf2:q*
+            (cl-tf2:orientation (btr:object-pose object-name))
+            (cl-tf2:euler->quaternion
+             :ax (second turn)
+             :ay (first turn)
+             :az (third turn))))
+      (t (print turn)) ;; change into throwing error
+          
+  )))
 
 ;; takes care of the x-y-z pose when placing the object with the goal of not placing object
 ;; inside the table
@@ -209,16 +302,16 @@
                     (list 0 (/  object-depth 2) 0)))
     ((equal :top bottom-side)
      (vector-offset place-vector
-                    (list 0 0 (- object-height))))
+                    (list 0 0 0)))
     ((equal :bottom bottom-side)
      (vector-offset place-vector
                     (list 0 0 0)))
     ((equal :front bottom-side)
      (vector-offset place-vector
-                    (list 0 (- (/  object-width 2)) 0)))
+                    (list 0 (- (/  object-width 4)) 0)))
     ((equal :back bottom-side)
      (vector-offset place-vector
-                    (list 0 (/  object-width 2) 0)))
+                    (list 0 (/  object-width 4) 0)))
     (t (print "not sure how we got here but something is wrong, vector-change")))))
 
 ;;3-sides
@@ -240,8 +333,8 @@
            (cpl:fail 'common-fail:high-level-failure)))
                              
   (grasp-object ?object-type
-                arm (first grasp) *place-pose*)))
-  (place-object target-pose arm))
+                arm *place-pose* (first grasp))))
+  (place-object target-pose arm :?left-grasp (first grasp)))
 
 (defun object-desig-shortcut (?object-type)
   (desig:an object (type ?object-type)))
@@ -258,21 +351,26 @@
                       ((:object-name ?object-name))
                       ((:object-size ?object-size))
                       ((:arm ?arm))
-                      ((:grasp ?grasp))
-                      ((:bottom-side ?bottom))
+                      ((:side-goal ?side-goal))
+                      ((:sides-base ?sides-base))
                     &allow-other-keys)
-  (declare (type list ?plan ?object-size ?grasp)
-           (type keyword ?arm ?object-type ?bottom)
-           (type symbol ?object-name))
-  (print ?bottom)
- 
+  (declare (type list ?plan ?object-size ?sides-base ?arm)
+           (type keyword ?object-type ?side-goal)
+           (type symbol ?object-name)) 
   (loop for move in (remove nil ?plan)
         do
-           (let ((3d-list (vector-change
+           (let* ((object-vector (cram-tf:3d-vector->list
+                                (cl-tf2:origin (btr:object-pose ?object-name))))
+                  (3d-list (vector-change
                            (cram-tf:3d-vector->list (cl-tf2:origin *place-pose*))
-                             ?bottom
+                             ?side-goal
                              ?object-size))
-                 (orientation (orientation-change ?object-name move)))
+                 (orientation (orientation-change-new ?object-name move ?side-goal))
+                  (located-sides (locate-sides
+                                  (transforms-map-t-side ?object-name ?sides-base)
+                                 object-vector))
+                  (?grasp (which-sides located-sides move)))
+             (setf *sides-log* (append (list ?grasp (list move) located-sides) *sides-log*))
              (let ((target
                      (place-pose-stability-adjustment
                       orientation
@@ -283,3 +381,28 @@
                (execute-change-side ?object-type ?arm ?grasp target)
                ))))
 
+
+(defun remove-element-from-list (list element)
+  (remove nil (mapcar (lambda (x) (if (equal x element)
+                          nil
+                          x))
+                          list)))
+
+(defun which-sides (located-sides move)
+  (let* ((top (opposite-short (first located-sides)))
+         (front (third located-sides))
+         (right (second located-sides))
+         (left (opposite-short right)))
+  (cond
+    ((string-equal "right-turn" move)
+     (list front left top))
+    ((string-equal "left-turn" move)
+     (list front right top))
+    ((string-equal "front-turn" move)
+     (list right left top))
+    ((string-equal "back-turn" move)
+     (list right left front))
+    ((string-equal "flip" move)
+     (list right left front))
+    (t (print "test")) ;;throw error
+  )))

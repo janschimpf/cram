@@ -10,10 +10,7 @@
 
 ;;for changing the relation of the side-pose from the object to the map
 (defun set-sides (object-name object-x object-y object-z)
-  (let ((object-vector (cram-tf:3d-vector->list
-                        (cl-tf2:origin (btr:object-pose object-name))))
-        
-        (object-rotation (cl-tf2:orientation
+  (let ((object-rotation (cl-tf2:orientation
                           (cram-tf::pose-stamped->pose (btr:object-pose object-name))))
        (side-list (list
                    (list :top (cl-transforms:make-3d-vector 0 0 0.05))
@@ -22,8 +19,8 @@
                    (list :left (cl-transforms:make-3d-vector 0 0.05 0))
                    (list :right (cl-transforms:make-3d-vector 0 -0.05 0))
                    
-                   (list :back (cl-transforms:make-3d-vector 0.05 0 0))
-                   (list :front (cl-transforms:make-3d-vector -0.05 0 0)))))
+                   (list :front (cl-transforms:make-3d-vector 0.05 0 0))
+                   (list :back (cl-transforms:make-3d-vector -0.05 0 0)))))
     (let ((side (mapcar (lambda (x) (list (first x) (cl-tf:make-pose
                          (second x)
                          object-rotation)))
@@ -37,21 +34,22 @@
         (object-vector (cram-tf:3d-vector->list
                         (cl-tf2:origin (btr:object-pose object-name)))))
 
-    (if (x-y-z-pose-check scan-area-vector object-vector)
-        (roslisp:ros-info (scan-object) "object is in the scan area")
-        (roslisp:ros-info (scan-object) "object is not inside the scan area"))
+   ;; (if (x-y-z-pose-check scan-area-vector object-vector)
+   ;;     (roslisp:ros-info (scan-object) "object is in the scan area")
+   ;;     (roslisp:ros-info (scan-object) "object is not inside the scan area"))
     
-    (if (side-check side object-vector side-list)
-        (roslisp:ros-info (scan-object)
-                          "Object has the correct rotation and so the code was scaned")
-        (roslisp:ros-info (scan-object)
-                          "Object has the wrong rotation"))
-    (if (and (side-check side object-vector side-list)
+   ;;  (if (side-check side object-vector side-list)
+   ;;     (roslisp:ros-info (scan-object)
+   ;;                       "Object has the correct rotation and so the code was scaned")
+   ;;     (roslisp:ros-info (scan-object)
+    ;;                       "Object has the wrong rotation"))
+
+    (if (and (side-check side object-vector side-list object-name)
              (x-y-z-pose-check scan-area-vector object-vector))
         t
         nil
         )
-  ))
+    ))
 
 
 (defun x-y-z-pose-check (scan-area-vector object-vector)
@@ -75,9 +73,16 @@
   )
 
 
-(defun side-check (side-to-be object-vector side-list)
-  (let ((side-as-is (car (locate-sides side-list object-vector))))
-        (setf *sides-log* (append (list side-as-is) *sides-log*))
+(defun side-check (side-to-be object-vector side-list object-name)
+  (let* ((side-as-is (car (locate-sides side-list object-vector)))
+         (path-name (concatenate 'string "/tmp/"
+                                 (format nil "~a" object-name)
+                                 "-"
+                                 (format nil"~a" side-as-is)
+                                 ".png")))
+    (setf *sides-log* (append (list side-as-is) *sides-log*))
+    (btr::png-from-camera-view 
+                                     :png-path path-name) 
         (if (equal side-to-be side-as-is)
             t
             nil
