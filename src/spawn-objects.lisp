@@ -12,7 +12,7 @@
 
 (defparameter object-list-breakfast-cereal
   (list 'breakfast-cereal-1 :breakfast-cereal
-        '((-2 2 0.75) (0 0 0 1)) '(0.05 0.15 0.2) :front))
+        '((-2 2 0.75) (0 0 0 1)) '(0.05 0.15 0.2) :back))
 
 (defparameter spawn-objects-list (list object-list-breakfast-cereal
                                        ;;object-list-bottle

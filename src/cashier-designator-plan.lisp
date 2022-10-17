@@ -1,7 +1,7 @@
 (in-package :cashier)
 
 ;; =======side-changing ===================
-;; returns the bototm side and then a list of
+;; returns the bottom side and then a list of
 ;; the bottom, right and front sides in that order
 (defun side-changes (side-list)
   (print "side-list")
@@ -49,25 +49,21 @@
 (defun opposite-short (side)
   (cdaar (prolog:prolog `(or (opposite ,side ?x)
                              (opposite ?x ,side)))))
-
+(defun axis-short (side)
+  (cdaar (prolog:prolog `(axis ,side ?x))))
 
 (def-fact-group sides-predicates (opposite)
-  (<- (connection front right))
-  (<- (connection front left))
-  (<- (connection front top))
-  (<- (connection front bottom))
-  (<- (connection back right))
-  (<- (connection back left))
-  (<- (connection back top))
-  (<- (connection back bottom))
-  (<- (connection top left))
-  (<- (connection top right))
-  (<- (connection bottom left))
-  (<- (connection bottom right))
-  
   (<- (opposite :top :bottom))
   (<- (opposite :left :right))
-  (<- (opposite :front :back)))
+  (<- (opposite :front :back))
+
+  (<- (axis :front y))
+  (<- (axis :back -y))
+  (<- (axis :right x))
+  (<- (axis :left -x))
+  (<- (axis :top -z))
+  (<- (axis :bottom z))
+  )
 
 
 
@@ -107,6 +103,8 @@
                       ((:object-type ?object-type))
                       ((:object-name ?object-name))
                       ((:arm ?arm))
+                      ((:non-scanable ?non-scanable))
+                      ((:non-graspable ?non-graspable))
                       ((:object-size ?object-size))
                       ((:goal-side ?goal-side))
                       ((:sides-base ?sides-base))
@@ -114,9 +112,21 @@
                       ((:sides-to-check ?sides-to-check))
                     &allow-other-keys)
   
-  (declare (type keyword ?object-type ?goal-side)
-           (type list ?sides-base ?sides-transformed ?object-size ?sides-to-check ?arm)
-           (type symbol ?object-name))
+  (declare (type keyword
+                 ?object-type
+                 ?goal-side)
+           
+           (type list
+                 ?sides-base
+                 ?sides-transformed
+                 ?object-size
+                 ?sides-to-check
+                 ?arm
+                 ?non-scanable
+                 ?non-graspable)
+           
+           (type symbol
+                 ?object-name))
   (setf ?sides-transformed (transforms-map-t-side ?object-name ?sides-base))
 
   (cpl:with-retry-counters ((scan-counter-retries (length ?sides-to-check)))
@@ -142,6 +152,8 @@
                       (:object-name ?object-name)
                       (:object-type ?object-type)
                       (:arm ?arm)
+                      (:non-scanable ?non-scanable)
+                      (:non-graspable ?non-graspable)
                       (:change-to-side ?check-side)
                       (:sides-base ?sides-base)
                       (:sides-transformed ?sides-transformed)
@@ -160,7 +172,7 @@
          (top (opposite-short (first located-sides)))
          (front (third located-sides))
          (back (opposite-short (third located-sides)))
-         (side-list (list right left top front back)))
+         (side-list (list right left front back top)))
     ;; check list if element(s) are part of sides-to-check
     ;; first element that is in the side-to-check list is the one we target next
     (loop for x in side-list
@@ -168,14 +180,14 @@
              (when (not (null (member x sides-to-check)))
                (return x)))))
 
-
-(defun which-side-to-grasp (located-sides change-direction)
-  )
   
 
 ;;; ===== pose changes for placing the object with a different orientation / side ======
 
-(defun place-pose-stability-adjustment (orientation origin-list object-type object-name offset-start)
+(defun place-pose-stability-adjustment
+    (orientation origin-list
+     object-type object-name
+     offset-start)
   (let ((offset offset-start))
     (cpl:with-retry-counters ((pose-adjustment-retries 15))
     (cpl:with-failure-handling 
@@ -201,41 +213,54 @@
 
 
 ;;takes care of the the needed orientation change to turn the object
-(defun orientation-change (object-name move)
+(defun orientation-change (object-name move located-sides)
+  (let* ((turn
+           (cond
+             ((string-equal "right-turn" move)
+              (list (/ pi 2) 0  0))
+             ((string-equal "left-turn" move)
+              (list (-(/ pi 2)) 0 0))
+             ((string-equal "back-turn" move)
+              (list 0 (- (/ pi 2)) 0))
+             ((string-equal "front-turn" move)
+              (list 0 (/ pi 2) 0))
+             ((string-equal "flip" move)
+              (list pi 0 0))
+             ((string-equal "left-roation" move)
+              (list 0 0 (- (/ pi 2))))
+             ((string-equal "back-turn" move)
+              (list 0 0 (/ pi 2)))
+             (t (print move))))
+         (axis-bottom (axis-short (first located-sides)))
+         (axis-right (axis-short (third located-sides)))
+         (axis-front (axis-short (second located-sides)))
+         (axis-list (list axis-right axis-front axis-bottom))
+         (result (mapcar (lambda (x) (matching-axis x turn))
+                         axis-list)))
+    (cl-tf2:q*
+            (cl-tf2:orientation (btr:object-pose object-name))
+            (cl-tf2:euler->quaternion
+             :ax (first result)
+             :ay (third result)
+             :az (second result)))))
+
+(defun matching-axis (axis list-match)
   (cond
-    ((string-equal "right-turn" move)
-     (cl-tf2:q*
-      (cl-tf2:orientation (btr:object-pose object-name))
-      (cl-tf2:euler->quaternion :ax (/ pi 2) :ay 0 :az 0)))
+    ((string-equal "X" axis)
+     (first list-match))
+    ((string-equal "-X" axis)
+     (- (first list-match)))
+    ((string-equal "Y" axis)
+     (second list-match))
+    ((string-equal "-Y" axis)
+     (- (second list-match)))
+    ((string-equal "Z" axis)
+     (third list-match))
+    ((string-equal "-Z" axis)
+     (- (third list-match)))))
     
-    ((string-equal "left-turn" move)
-     (cl-tf2:q*
-      (cl-tf2:orientation (btr:object-pose object-name))
-      (cl-tf2:euler->quaternion :ax (-(/ pi 2)) :ay 0 :az 0)))
     
-    ((string-equal "front-turn" move)
-     (cl-tf2:q*
-      (cl-tf2:orientation (btr:object-pose object-name))
-      (cl-tf2:euler->quaternion :ax 0 :ay 0 :az (/ pi 2))))
     
-    ((string-equal "back-turn" move)
-     (cl-tf2:q*
-      (cl-tf2:orientation (btr:object-pose object-name))
-      (cl-tf2:euler->quaternion :ax 0 :ay 0 :az (- (/ pi 2)))))
-    
-    ((string-equal "flip" move)
-     (cl-tf2:orientation (btr:object-pose object-name))
-     (cl-tf2:euler->quaternion :ax 0 :ay 0 :az pi))
-
-    ((string-equal "left-rotation" move)
-     (cl-tf2:orientation (btr:object-pose object-name))
-     (cl-tf2:euler->quaternion :ax 0 :ay (-(/ pi 2)) :az 0))
-
-    ((string-equal "right-rotation" move)
-     (cl-tf2:orientation (btr:object-pose object-name))
-     (cl-tf2:euler->quaternion :ax 0 :ay (/ pi 2) :az 0))
-
-  (t (print move))))
 
 
 (defun orientation-change-new (object-name move bottom-side)
@@ -246,26 +271,31 @@
              ((string-equal "left-turn" move)
               (list (-(/ pi 2)) 0 0))
              ((string-equal "back-turn" move)
-              (list 0 0 (/ pi 2)))
-             ((string-equal "front-turn" move)
-              (list 0 0 (- (/ pi 2))))
-             ((string-equal "flip" move)
-              (list 0 0 pi))
-             ((string-equal "left-roation" move)
               (list 0 (- (/ pi 2)) 0))
-             ((string-equal "back-turn" move)
+             ((string-equal "front-turn" move)
               (list 0 (/ pi 2) 0))
+             ((string-equal "flip" move)
+              (list pi 0 0))
+             ((string-equal "left-roation" move)
+              (list 0 0 (- (/ pi 2))))
+             ((string-equal "back-turn" move)
+              (list 0 0 (/ pi 2)))
              (t (print move))))) ;; change into throwing error
     (cond
-      ((or (string-equal "bottom" bottom-side)
-           (string-equal "top" bottom-side))
+      ((string-equal "bottom" bottom-side)
        (cl-tf2:q*
             (cl-tf2:orientation (btr:object-pose object-name))
             (cl-tf2:euler->quaternion
              :ax (first turn)
              :ay (second turn)
              :az (third turn))))
-      
+      ((string-equal "top" bottom-side)
+       (cl-tf2:q*
+            (cl-tf2:orientation (btr:object-pose object-name))
+            (cl-tf2:euler->quaternion
+             :ax (first turn)
+             :ay (second turn)
+             :az (third turn))))
       ((or (string-equal "left" bottom-side)
            (string-equal "right" bottom-side))
        (cl-tf2:q*
@@ -280,9 +310,9 @@
        (cl-tf2:q*
             (cl-tf2:orientation (btr:object-pose object-name))
             (cl-tf2:euler->quaternion
-             :ax (second turn)
-             :ay (first turn)
-             :az (third turn))))
+             :ax (first turn)
+             :ay (third turn)
+             :az (second turn))))
       (t (print turn)) ;; change into throwing error
           
   )))
@@ -296,45 +326,28 @@
   (cond
     ((equal :right bottom-side)
      (vector-offset place-vector
-                    (list 0 (- (/ object-depth 2)) 0)))
+                    (list 0 object-depth 0.04)))
     ((equal :left bottom-side)
      (vector-offset place-vector
-                    (list 0 (/  object-depth 2) 0)))
+                    (list 0 object-depth 0.04)))
     ((equal :top bottom-side)
      (vector-offset place-vector
-                    (list 0 0 0)))
+                    (list 0 0 0.04)))
     ((equal :bottom bottom-side)
      (vector-offset place-vector
-                    (list 0 0 0)))
+                    (list 0 0 0.04)))
     ((equal :front bottom-side)
      (vector-offset place-vector
-                    (list 0 (- (/  object-width 4)) 0)))
+                    (list -0.05 0 0.04)))
     ((equal :back bottom-side)
      (vector-offset place-vector
-                    (list 0 (/  object-width 4) 0)))
+                    (list 0 (/  object-width 4) 0.04)))
     (t (print "not sure how we got here but something is wrong, vector-change")))))
 
 ;;3-sides
 ;;list of sides of the 
 
-(defun execute-change-side (?object-type arm grasp target-pose)
-  (cpl:with-retry-counters ((grasp-retry 2))
-    (cpl:with-failure-handling
-        ((common-fail:gripper-closed-completely (e) 
-           (roslisp:ros-warn (cashier-demo) "failure happened: ~a~% changing grasp" e)
-           (cpl:do-retry grasp-retry
-             (setf grasp (cdr grasp))
-             (cpl:retry)))
-         (desig:designator-error (e)
-           (roslisp:ros-warn (cashier-demo) "designator-reference-failure ~a~%" e)
-           (cpl:do-retry grasp-retry
-           (setf grasp (cdr grasp))
-           (cpl:retry))
-           (cpl:fail 'common-fail:high-level-failure)))
-                             
-  (grasp-object ?object-type
-                arm *place-pose* (first grasp))))
-  (place-object target-pose arm :?left-grasp (first grasp)))
+
 
 (defun object-desig-shortcut (?object-type)
   (desig:an object (type ?object-type)))
@@ -365,10 +378,10 @@
                            (cram-tf:3d-vector->list (cl-tf2:origin *place-pose*))
                              ?side-goal
                              ?object-size))
-                 (orientation (orientation-change-new ?object-name move ?side-goal))
                   (located-sides (locate-sides
                                   (transforms-map-t-side ?object-name ?sides-base)
                                  object-vector))
+                  (orientation (orientation-change ?object-name move located-sides))
                   (?grasp (which-sides located-sides move)))
              (setf *sides-log* (append (list ?grasp (list move) located-sides) *sides-log*))
              (let ((target
@@ -380,6 +393,29 @@
                       0)))
                (execute-change-side ?object-type ?arm ?grasp target)
                ))))
+
+(defun execute-change-side (?object-type arm grasp target-pose)
+  (cpl:with-retry-counters ((grasp-retry 2))
+    (cpl:with-failure-handling
+        ((common-fail:gripper-closed-completely (e) 
+           (roslisp:ros-warn (cashier-demo) "failure happened: ~a~% changing grasp" e)
+           (cpl:do-retry grasp-retry
+             (setf grasp (cdr grasp))
+             (cpl:retry)))
+         (desig:designator-error (e)
+           (roslisp:ros-warn (cashier-demo) "designator-reference-failure ~a~%" e)
+           (cpl:do-retry grasp-retry
+           (setf grasp (cdr grasp))
+           (cpl:retry))
+           (cpl:fail 'common-fail:high-level-failure)))
+                             
+  (grasp-object ?object-type
+                arm *place-pose* (first grasp))))
+  (move *place-nav-pose*)
+
+  (place-object target-pose arm :?left-grasp (first grasp)))
+
+
 
 
 (defun remove-element-from-list (list element)
@@ -404,5 +440,9 @@
      (list right left front))
     ((string-equal "flip" move)
      (list right left front))
+    ((string-equal "left-rotation" move)
+     (list left front top))
+    ((string-equal "right-rotation" move)
+     (list right front top))
     (t (print "test")) ;;throw error
   )))

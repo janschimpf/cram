@@ -11,16 +11,27 @@
     (list (car x) (cl-transforms:transform->pose map-T-side))))
           side-poses))
 
-(defun sides-to-check (sides-base object-size)
-  (mapcar (lambda (x) (car x)) sides-base))
+(defun sides-to-check (sides-base object-size non-scanable non-graspable)
+  (let* ((combined-list (append non-scanable non-graspable))
+         (sides (mapcar (lambda (x) (car x)) sides-base))
+         (updated-sides (remove-if (lambda (x)
+                                     (member x combined-list
+                                             :test #'equal))
+                                   sides)))
+         (setf *sides-log* (append combined-list *sides-log*))
+  updated-sides))
 
 ;; ============ planning for which moves to do to change a side ==============
 
 
 ;; plans the path between the current bottom side and the side that should be scanned next
 ;; then returns said path (list were the movement are the elements)
-(defun path-plan-next-side (side-list goal) ;;(current-side next-side side-list object-vector)
-  (let ((sorted-sides-list (check-sides-moves side-list goal)))
+(defun path-plan-next-side (side-list non-scanable non-graspable goal) ;;(current-side next-side side-list object-vector)
+  (let* ((combined-list (append non-scanable non-graspable))
+         (sorted-sides-list (remove-if (lambda (x)
+                                     (member (second x) combined-list
+                                             :test #'equal))
+                                   (check-sides-moves side-list goal))))
     (if (null sorted-sides-list)
         (path-second-step side-list goal)
      (remove nil (list (first (car sorted-sides-list)))))))
@@ -59,6 +70,8 @@
     (desig-prop ?action-designator (:object-name ?object-name))
     (desig-prop ?action-designator (:object-type ?object-type))
     (desig-prop ?action-designator (:arm ?arm))
+    (desig-prop ?action-designator (:non-scanable ?non-scanable))
+    (desig-prop ?action-designator (:non-graspable ?non-graspable))
     (desig-prop ?action-designator (:goal-side ?goal-side))
     (desig-prop ?action-designator (:object-list ?object-list))
     (desig-prop ?action-designator (:object-size ?object-size))
@@ -70,6 +83,8 @@
                                (:object-type ?object-type)
                                (:object-name ?object-name)
                                (:arm ?arm)
+                               (:non-scanable ?non-scanable)
+                               (:non-graspable ?non-graspable)
                                (:goal-side ?goal-side)
                                (:sides-base ?sides-base)
                                (:object-size ?object-size)
@@ -82,19 +97,23 @@
     (desig-prop ?action-designator (:object-name ?name))
     (desig-prop ?action-designator (:object-type ?object-type))
     (desig-prop ?action-designator (:arm ?arm))
+    (desig-prop ?action-designator (:non-scanable ?non-scanable))
+    (desig-prop ?action-designator (:non-graspable ?non-graspable))
     (desig-prop ?action-designator (:object-size ?object-size))
     (desig-prop ?action-designator (:sides-base ?sides-base))
     (desig-prop ?action-designator (:goal-side ?goal-side))
 
 
     (lisp-fun transforms-map-T-side ?object-name ?sides-base ?sides-transformed)
-    (lisp-fun sides-to-check ?sides-transformed ?object-size ?sides-to-check)
+    (lisp-fun sides-to-check ?sides-transformed ?object-size ?non-scanable ?non-graspable ?sides-to-check)
 
     (desig:designator :action ((:type :scanning)
                                (:object-name ?name)
                                (:object-type ?object-type)
                                (:object-size ?object-size)
                                (:arm ?arm)
+                               (:non-scanable ?non-scanable)
+                               (:non-graspable ?non-graspable)
                                (:sides-base ?sides-base)
                                (:goal-side ?goal-side)
                                (:sides-transformed ?sides-transformed)
@@ -108,6 +127,8 @@
     (desig-prop ?action-designator (:object-name ?object-name))
     (desig-prop ?action-designator (:object-size ?object-size))
     (desig-prop ?action-designator (:arm ?arm))
+    (desig-prop ?action-designator (:non-scanable ?non-scanable))
+    (desig-prop ?action-designator (:non-graspable ?non-graspable))
     (desig-prop ?action-designator (:sides-base ?sides-base))
     (desig-prop ?action-designator (:change-to-side ?side-goal))
     (desig-prop ?action-designator (:object-vector ?object-vector))
@@ -116,7 +137,7 @@
 
     (lisp-fun locate-sides ?sides-transformed ?object-vector ?located-sides)
     (lisp-fun side-changes ?located-sides ?side-changes)
-    (lisp-fun path-plan-next-side ?side-changes ?side-goal ?plan)
+    (lisp-fun path-plan-next-side ?side-changes ?non-scanable ?non-graspable ?side-goal ?plan)
 
     (desig:designator :action ((:type :changing-side)
                                (:object-name ?object-name)

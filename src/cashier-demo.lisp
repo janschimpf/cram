@@ -100,18 +100,6 @@
                              (type parking-arms))))
 
 
-(defun test-action-desig (?object-list)
-  (let ((?object-type (first ?object-list))
-        (?object-name (second ?object-list))
-        (?object-size (fourth ?object-list))
-        (?goal-side (car (last ?object-list))))
-  (desig:an action
-            (type :cashier)
-            (object-list ?object-list)
-            (object-type ?object-name)
-            (object-name ?object-type)
-            (goal-side ?goal-side)
-            (object-sie ?object-size))))
 
 (defun pr2-cashier-demo ()
 
@@ -124,11 +112,16 @@
         (?object-type (second object))
         (?object-size (fourth object))
         (?goal-side (car (last object)))
-        (?arms (list :left)))
+        (?arms (list :left))
+        (?non-scanable (list :left :right))
+        (?non-graspable (list :left :right)))
+    
     (exe:perform (desig:an action
                            (type cashier)
                            (object-list object)
                            (arm ?arms)
+                           (non-scanable ?non-scanable)
+                           (non-graspable ?non-graspable)
                            (object-name ?object-name)
                            (object-type ?object-type)
                            (object-size ?object-size)
@@ -141,13 +134,26 @@
                          ((:object-type ?object-type))
                          ((:object-name ?object-name))
                          ((:arm ?arm))
+                         ((:non-scnable ?non-scanable))
+                         ((:non-graspable ?non-graspable))
                          ((:goal-side ?goal-side))
                          ((:sides-base ?sides-base))
                          ((:sides-transformed ?sides-transformed))
                          ((:object-size ?object-size))
                         &allow-other-keys)
-  (declare (type keyword ?object-type ?goal-side)
-           (type list ?sides-base ?sides-transformed ?object-size ?arm)
+
+  (declare (type keyword
+                 ?object-type
+                 ?goal-side)
+           
+           (type list
+                 ?sides-base
+                 ?sides-transformed
+                 ?object-size
+                 ?arm
+                 ?non-scanable
+                 ?non-graspable)
+           
            (type symbol ?object-name))
 
 
@@ -167,7 +173,9 @@
   ;;(if
    (exe:perform (desig:an action
                          (:type :scanning)
-                         (:arm ?arm)    
+                         (:arm ?arm)
+                         (:non-scanable ?non-scanable)
+                         (:non-graspable ?non-graspable)
                          (:object-name ?object-name)
                          (:object-type ?object-type)
                          (:object-size ?object-size)
@@ -175,8 +183,8 @@
                          (:sides-base ?sides-base)))
       ;;(sucessful-scan ?object-type ?object-name ?sides-base ?arm)
 
-    ;;  (print "scan failed"))
-  )
+      (print "scan failed"))
+  
 
 (defun sucessful-scan (?object-type ?object-name ?sides-base ?arm)
   (print "object was succesfully scanned")

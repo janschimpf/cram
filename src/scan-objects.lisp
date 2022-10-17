@@ -19,8 +19,10 @@
                    (list :left (cl-transforms:make-3d-vector 0 0.05 0))
                    (list :right (cl-transforms:make-3d-vector 0 -0.05 0))
                    
-                   (list :front (cl-transforms:make-3d-vector 0.05 0 0))
-                   (list :back (cl-transforms:make-3d-vector -0.05 0 0)))))
+                   (list :front (cl-transforms:make-3d-vector
+                                 0.05 0 0 ))
+                   (list :back (cl-transforms:make-3d-vector
+                                -0.05 0 0)))))
     (let ((side (mapcar (lambda (x) (list (first x) (cl-tf:make-pose
                          (second x)
                          object-rotation)))
