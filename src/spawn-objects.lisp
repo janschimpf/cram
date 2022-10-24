@@ -7,15 +7,16 @@
 
 (defparameter object-list-pringles
   (list 'pringle-1 :pringle
-        '((-2 2 0.75)(0 0 0 1)) '(0.05 0.05 0.15) :bottom))
+        '((-2 2 0.75)(0 0 0 1)) '(0.05 0.05 0.15) :top))
 
 
 (defparameter object-list-breakfast-cereal
   (list 'breakfast-cereal-1 :breakfast-cereal
-        '((-2 2 0.75) (0 0 0 1)) '(0.05 0.15 0.2) :back))
+        '((-2 2 0.75) (0 0 0 1)) '(0.05 0.15 0.2) :top))
 
 (defparameter spawn-objects-list (list object-list-breakfast-cereal
                                        ;;object-list-bottle
+                                       ;;object-list-pringles
                                        ))
 
 (defun spawn-object-on-counter-general (list)

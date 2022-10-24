@@ -11,14 +11,15 @@
     (list (car x) (cl-transforms:transform->pose map-T-side))))
           side-poses))
 
-(defun sides-to-check (sides-base object-size non-scanable non-graspable)
+(defun sides-to-check (sides-base non-scanable non-graspable)
   (let* ((combined-list (append non-scanable non-graspable))
          (sides (mapcar (lambda (x) (car x)) sides-base))
          (updated-sides (remove-if (lambda (x)
                                      (member x combined-list
                                              :test #'equal))
                                    sides)))
-         (setf *sides-log* (append combined-list *sides-log*))
+    (print updated-sides)
+    (setf *sides-log* (append combined-list *sides-log*))
   updated-sides))
 
 ;; ============ planning for which moves to do to change a side ==============
@@ -31,7 +32,8 @@
          (sorted-sides-list (remove-if (lambda (x)
                                      (member (second x) combined-list
                                              :test #'equal))
-                                   (check-sides-moves side-list goal))))
+                                       (check-sides-moves side-list goal))))
+    (print sorted-sides-list)
     (if (null sorted-sides-list)
         (path-second-step side-list goal)
      (remove nil (list (first (car sorted-sides-list)))))))
@@ -105,7 +107,7 @@
 
 
     (lisp-fun transforms-map-T-side ?object-name ?sides-base ?sides-transformed)
-    (lisp-fun sides-to-check ?sides-transformed ?object-size ?non-scanable ?non-graspable ?sides-to-check)
+    (lisp-fun sides-to-check ?sides-transformed ?non-scanable ?non-graspable ?sides-to-check)
 
     (desig:designator :action ((:type :scanning)
                                (:object-name ?name)
