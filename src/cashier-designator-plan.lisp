@@ -1,50 +1,6 @@
 (in-package :cashier)
 
-;; =======side-changing ===================
-;; returns the bottom side and then a list of
-;; the bottom, right and front sides in that order
-(defun side-changes (side-list)
-  (print "side-list")
-  (print side-list)
-  (let* ((bottom (first side-list))
-         (right (second side-list))
-         (front (third side-list)))
-    (list (list "right-turn" right (list
-                                    right
-                                    (opposite-short bottom)
-                                    front))
-          
-          (list "left-turn" (opposite-short right)
-                (list (opposite-short right)
-                      bottom
-                      front))
-          
-          (list "back-turn" (opposite-short front)
-                (list (opposite-short front)
-                      right
-                      bottom))
-          
-          (list "front-turn" front
-                (list front
-                      right
-                      (opposite-short bottom)))
-          
-          (list "flip" (opposite-short bottom)
-                (list (opposite-short bottom)
-                      right
-                      (opposite-short front)))
-          
-          (list "left-rotation" bottom
-                (list bottom
-                      (opposite-short front)
-                      (opposite-short right)))
-          
-          (list "right-rotation" bottom
-                (list bottom
-                      (opposite-short front)
-                      right))
 
-          )))
 
 
 (defun cashier-object (&key

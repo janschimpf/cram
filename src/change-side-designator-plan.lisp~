@@ -34,25 +34,25 @@
 (defun orientation-change (object-name move located-sides)
   (let* ((turn
            (cond
-             ((string-equal "right-turn" move)
-              (list (/ pi 2) 0  0))
-             ((string-equal "left-turn" move)
-              (list (-(/ pi 2)) 0 0))
              ((string-equal "back-turn" move)
-              (list 0 (- (/ pi 2)) 0 0))
+              (list (- (/ pi 2)) 0 0))
              ((string-equal "front-turn" move)
-              (list 0 (/ pi 2) 0 0))
+              (list (/ pi 2) 0 0))
+             ((string-equal "right-turn" move)
+              (list 0 (/ pi 2)  0))
+             ((string-equal "left-turn" move)
+              (list 0 (-(/ pi 2)) 0))
              ((string-equal "flip" move)
-              (list pi 0 0))
+              (list 0 0 pi))
              ((string-equal "left-roation" move)
               (list 0 0 (- (/ pi 2))))
              ((string-equal "right-rotation" move)
               (list 0 0 (/ pi 2)))
              (t (print move))))
          (axis-bottom (axis-short (first located-sides)))
-         (axis-right (axis-short (third located-sides)))
          (axis-front (axis-short (second located-sides)))
-         (axis-list (list axis-right axis-front axis-bottom))
+         (axis-right (axis-short (third located-sides)))
+         (axis-list (list axis-bottom axis-right axis-front))
          (result (mapcar (lambda (x) (matching-axis x turn))
                          axis-list)))
     (cl-tf2:q*
@@ -62,21 +62,20 @@
              :ay (third result)
              :az (second result)))))
 
-(cl-tf2:q
-
 (defun matching-axis (axis list-match)
   (cond
     ((string-equal "X" axis)
      (first list-match))
     ((string-equal "-X" axis)
-     (first list-match))((string-equal "Y" axis)
+     (- (first list-match)))
+    ((string-equal "Y" axis)
      (second list-match))
     ((string-equal "-Y" axis)
-     (second list-match))
+     (- (second list-match)))
     ((string-equal "Z" axis)
      (third list-match))
     ((string-equal "-Z" axis)
-     (third list-match))
+     (- (third list-match)))
     ))
     
     
@@ -87,14 +86,14 @@
   (let* ((bottom-side (first located-sides))
          (turn
            (cond
-             ((string-equal "right-turn" move)
-              (list 0 (/ pi 2)  0))
-             ((string-equal "left-turn" move)
-              (list 0 (-(/ pi 2)) 0))
              ((string-equal "back-turn" move)
               (list (- (/ pi 2)) 0 0))
              ((string-equal "front-turn" move)
               (list (/ pi 2) 0 0))
+             ((string-equal "right-turn" move)
+              (list 0 (/ pi 2)  0))
+             ((string-equal "left-turn" move)
+              (list 0 (-(/ pi 2)) 0))
              ((string-equal "flip" move)
               (list pi 0 0))
              ((string-equal "left-roation" move)
@@ -153,7 +152,7 @@
                     (list 0 object-depth 0)))
     ((equal :top bottom-side)
      (vector-offset place-vector
-                    (list 0 0 0)))
+                    (list 0 0 0.04)))
     ((equal :bottom bottom-side)
      (vector-offset place-vector
                     (list 0 0 0)))
@@ -162,7 +161,7 @@
                     (list -0.05 0 0.04)))
     ((equal :back bottom-side)
      (vector-offset place-vector
-                    (list 0 (/  object-width 4) 0.04)))
+                    (list 0 0 0)))
     (t (print "not sure how we got here but something is wrong, vector-change")))))
 
 ;;3-sides

@@ -114,7 +114,7 @@
         (?goal-side (car (last object)))
         (?arms (list :left))
         (?non-scanable (list nil))
-        (?non-graspable (list :left :right :front :back)))
+        (?non-graspable (list :left :right)))
 
     (exe:perform (desig:an action
                            (type cashier)

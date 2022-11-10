@@ -22,6 +22,65 @@
     (setf *sides-log* (append combined-list *sides-log*))
   updated-sides))
 
+;; =======side-changing ===================
+;; returns the bottom side and then a list of
+;; the bottom, right and front sides in that order
+(defun side-changes (side-list non-graspable)
+  (let* ((bottom (first side-list))
+         (right (second side-list))
+         (front (third side-list))
+         (move-list (list (list "right-turn" right
+                                (list right
+                                      (opposite-short bottom)
+                                      front))
+                          
+                          (list "left-turn" (opposite-short right)
+                                (list (opposite-short right)
+                                      bottom
+                                      front))
+
+                          (list "back-turn" (opposite-short front)
+                                (list (opposite-short front)
+                                      right
+                                      bottom))
+          
+                          (list "front-turn" front
+                                (list front
+                                      right
+                                      (opposite-short bottom)))
+          
+                          (list "flip" (opposite-short bottom)
+                                (list (opposite-short bottom)
+                                      right
+                                      (opposite-short front)))
+          
+                          (list "left-rotation" bottom
+                                (list bottom
+                                      (opposite-short front)
+                                      (opposite-short right)))
+          
+                          (list "right-rotation" bottom
+                                (list bottom
+                                      (opposite-short front)
+                                      right))))
+         (checked-for-grasp (remove nil (viable-grasp side-list move-list non-graspable))))
+    checked-for-grasp))
+
+(defun viable-grasp (side-list move-list non-graspable)
+  (mapcar (lambda (x) (if (null (remove nil
+                                        (check-grasp
+                                         (which-sides side-list (first x))
+                                         non-graspable)))
+                                nil
+                                x))
+          move-list))
+
+(defun check-grasp (grasp-side non-graspable)
+  (mapcar (lambda (x) (if (member x non-graspable)
+                          nil
+                          x))
+            grasp-side))
+
 ;; ============ planning for which moves to do to change a side ==============
 
 
@@ -35,33 +94,19 @@
                                        (check-sides-moves side-list goal))))
     (print sorted-sides-list)
     (if (null sorted-sides-list)
-        (path-second-step side-list goal)
-     (remove nil (list (first (car sorted-sides-list)))))))
+        (path-second-step side-list goal non-graspable)
+      (list (first (car sorted-sides-list))))))
 
 (defun check-sides-moves (sides-list goal)
   (remove nil (mapcar (lambda (x)
-                        (if (equal goal (second x)) x))
+                        (if (equal goal (second x))
+                            x))
                       sides-list)))
 
-(defun path-second-step (move-list goal)
-  (let ((new-sides (car (reverse (car move-list)))))
-    (let ((second-move (remove nil (caar (check-sides-moves (side-changes new-sides) goal)))))
+(defun path-second-step (move-list goal non-graspable)
+  (let ((new-sides (second  move-list)))
+    (let ((second-move (remove nil (caar (check-sides-moves (side-changes new-sides non-graspable) goal)))))
       (list (first (car move-list)) second-move))))
-
-(defun resolve-plan (plan)
-  (let ((new-plan nil))
-    (mapcar (lambda (x) (setf new-plan (append new-plan x)))
-            (mapcar (lambda (x)
-                      (cond
-                        ((string-equal "back-turn" x)
-                         (list "left-turn" "back-turn"))
-                        ((string-equal "front-turn" x)
-                         (list "right-turn" "front-turn"))
-                        (t (list x)))) plan))
-    new-plan))
-        
-          
-
 
 
 ;; ================ Designator def =================================
@@ -138,7 +183,7 @@
 
 
     (lisp-fun locate-sides ?sides-transformed ?object-vector ?located-sides)
-    (lisp-fun side-changes ?located-sides ?side-changes)
+    (lisp-fun side-changes ?located-sides ?non-graspable ?side-changes)
     (lisp-fun path-plan-next-side ?side-changes ?non-scanable ?non-graspable ?side-goal ?plan)
 
     (desig:designator :action ((:type :changing-side)

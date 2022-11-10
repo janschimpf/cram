@@ -32,7 +32,11 @@
 
 ;;takes care of the the needed orientation change to turn the object
 (defun orientation-change (object-name move located-sides)
-  (let* ((turn
+  (let* ((90-turn (/ pi 2))
+         (axis-bottom (axis-short (first located-sides)))
+         (axis-front (axis-short (second located-sides)))
+         (axis-right (axis-short (third located-sides)))
+         (turn
            (cond
              ((string-equal "back-turn" move)
               (list (- (/ pi 2)) 0 0))
@@ -49,10 +53,8 @@
              ((string-equal "right-rotation" move)
               (list 0 0 (/ pi 2)))
              (t (print move))))
-         (axis-bottom (axis-short (first located-sides)))
-         (axis-front (axis-short (second located-sides)))
-         (axis-right (axis-short (third located-sides)))
-         (axis-list (list axis-bottom axis-right axis-front))
+
+         (axis-list (list axis-right axis-bottom axis-front))
          (result (mapcar (lambda (x) (matching-axis x turn))
                          axis-list)))
     (cl-tf2:q*
@@ -243,6 +245,7 @@
                           nil
                           x))
                           list)))
+  
 
 (defun which-sides (located-sides move)
   (let* ((top (opposite-short (first located-sides)))
@@ -266,8 +269,8 @@
      (list right front top))
     (t (print "test")) ;;throw error
   )))
-  
-  
+
+
   (defun opposite-short (side)
   (cdaar (prolog:prolog `(or (opposite ,side ?x)
                              (opposite ?x ,side)))))
