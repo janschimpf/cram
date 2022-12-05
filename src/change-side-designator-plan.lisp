@@ -47,7 +47,7 @@
              ((string-equal "left-turn" move)
               (list 0 (-(/ pi 2)) 0))
              ((string-equal "flip" move)
-              (list 0 0 pi))
+              (list 0 pi 0))
              ((string-equal "left-roation" move)
               (list 0 0 (- (/ pi 2))))
              ((string-equal "right-rotation" move)
@@ -148,13 +148,13 @@
   (cond
     ((equal :right bottom-side)
      (vector-offset place-vector
-                    (list 0 object-depth 0)))
+                    (list 0 object-depth -0.05)))
     ((equal :left bottom-side)
      (vector-offset place-vector
                     (list 0 object-depth 0)))
     ((equal :top bottom-side)
      (vector-offset place-vector
-                    (list 0 0 0.04)))
+                    (list 0 0 0.07)))
     ((equal :bottom bottom-side)
      (vector-offset place-vector
                     (list 0 0 0)))
@@ -277,6 +277,13 @@
 (defun axis-short (side)
   (cdaar (prolog:prolog `(axis ,side ?x))))
 
+(defun prolog-shape (object-type)
+  (cdaar (prolog:prolog `(btr-spatial-cm::%item-type-shape ,object-type ?x))))
+
+(defun prolog-disabled-side (shape)
+  (mapcar (lambda (x) (cdar x))
+          (prolog::force-ll  (prolog:prolog `(shape-disabled-sides ,shape ?x)))))
+
 (def-fact-group sides-predicates (opposite)
   (<- (opposite :top :bottom))
   (<- (opposite :left :right))
@@ -288,4 +295,9 @@
   (<- (axis :left -x))
   (<- (axis :top -z))
   (<- (axis :bottom z))
+
+  (<- (shape-disabled-sides :circle :left))
+  (<- (shape-disabled-sides :circle :right))
+  (<- (shape-disabled-sides :circle :front))
+  (<- (shape-disabled-sides :circle :back))
   )

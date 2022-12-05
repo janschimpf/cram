@@ -62,7 +62,8 @@
          (scan-z (third scan-area-vector))
          (object-x (first object-vector))
          (object-y (second object-vector))
-          (object-z (third object-vector)))    
+          (object-z (third object-vector)))
+    (print "x-y-z-pose check")
     (if (and (< (- scan-x 0.1) object-x)
              (< object-x  (+ scan-x 0.10))
              (< (- scan-y 0.1) object-y)
@@ -84,8 +85,11 @@
                                  ".png")))
     (setf *sides-log* (append (list side-as-is) *sides-log*))
     (btr::png-from-camera-view 
-                                     :png-path path-name) 
-        (if (equal side-to-be side-as-is)
+     :png-path path-name)
+    (print "side-check")
+    (print side-as-is)
+    (print side-to-be)
+    (if (equal side-to-be side-as-is)
             t
             nil
   )))
