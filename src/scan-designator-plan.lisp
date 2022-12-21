@@ -61,6 +61,7 @@
            
            (type symbol
                  ?object-name))
+  
   (setf ?sides-transformed (transforms-map-t-side ?object-name ?sides-base))
 
   (cpl:with-retry-counters ((scan-counter-retries (length ?sides-to-check)))
@@ -77,6 +78,7 @@
 
            (let* ((?check-side (next-side-to-check ?located-sides ?sides-to-check)))
 
+             (print "before change side")
            (if (not (equal nil ?check-side))
              (exe:perform
               (desig:an action

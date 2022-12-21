@@ -80,65 +80,6 @@
      (- (third list-match)))
     ))
     
-    
-    
-
-
-(defun orientation-change-new (object-name move located-sides)
-  (let* ((bottom-side (first located-sides))
-         (turn
-           (cond
-             ((string-equal "back-turn" move)
-              (list (- (/ pi 2)) 0 0))
-             ((string-equal "front-turn" move)
-              (list (/ pi 2) 0 0))
-             ((string-equal "right-turn" move)
-              (list 0 (/ pi 2)  0))
-             ((string-equal "left-turn" move)
-              (list 0 (-(/ pi 2)) 0))
-             ((string-equal "flip" move)
-              (list pi 0 0))
-             ((string-equal "left-roation" move)
-              (list 0 0 (- (/ pi 2))))
-             ((string-equal "back-turn" move)
-              (list 0 0 (/ pi 2)))
-             (t (print move))))) ;; change into throwing error
-    (cond
-      ((string-equal "bottom" bottom-side)
-       (cl-tf2:q*
-            (cl-tf2:orientation (btr:object-pose object-name))
-            (cl-tf2:euler->quaternion
-             :ax (first turn)
-             :ay (second turn)
-             :az (third turn))))
-      ((string-equal "top" bottom-side)
-       (cl-tf2:q*
-            (cl-tf2:orientation (btr:object-pose object-name))
-            (cl-tf2:euler->quaternion
-             :ax (first turn)
-             :ay (second turn)
-             :az (third turn))))
-      ((or (string-equal "left" bottom-side)
-           (string-equal "right" bottom-side))
-       (cl-tf2:q*
-            (cl-tf2:orientation (btr:object-pose object-name))
-            (cl-tf2:euler->quaternion
-             :ax (first turn)
-             :ay (third turn)
-             :az (second turn))))
-      
-      ((or (string-equal "front" bottom-side)
-           (string-equal "back" bottom-side))
-       (cl-tf2:q*
-            (cl-tf2:orientation (btr:object-pose object-name))
-            (cl-tf2:euler->quaternion
-             :ax (first turn)
-             :ay (third turn)
-             :az (second turn))))
-      (t (print turn)) ;; change into throwing error
-          
-  )))
-
 ;; takes care of the x-y-z pose when placing the object with the goal of not placing object
 ;; inside the table
 (defun vector-change (place-vector bottom-side object-size)
@@ -191,20 +132,26 @@
                     &allow-other-keys)
   (declare (type list ?plan ?object-size ?sides-base ?arm)
            (type keyword ?object-type ?side-goal)
-           (type symbol ?object-name)) 
+           (type symbol ?object-name))
+  
   (loop for move in (remove nil ?plan)
         do
+           
            (let* ((object-vector (cram-tf:3d-vector->list
-                                (cl-tf2:origin (btr:object-pose ?object-name))))
+                                  (cl-tf2:origin (btr:object-pose ?object-name))))
+                  
                   (3d-list (vector-change
-                           (cram-tf:3d-vector->list (cl-tf2:origin *place-pose*))
+                            (cram-tf:3d-vector->list (cl-tf2:origin *place-position*))
                              ?side-goal
                              ?object-size))
+                  
                   (located-sides (locate-sides
                                   (transforms-map-t-side ?object-name ?sides-base)
-                                 object-vector))
+                                  object-vector))
+                  
                   (orientation (orientation-change ?object-name move located-sides))
                   (?grasp (which-sides located-sides move)))
+             
              (setf *sides-log* (append (list ?grasp (list move) located-sides) *sides-log*))
              (let ((target
                      (place-pose-stability-adjustment
@@ -213,10 +160,24 @@
                       ?object-type
                       ?object-name
                       0)))
+               
                (execute-change-side ?object-type ?arm ?grasp target)
+               
                ))))
 
 (defun execute-change-side (?object-type arm grasp target-pose)
+  
+  (let* ((?look *place-position*)
+         (?start-pose nil))
+    
+    ;;(exe:perform (desig:a motion
+    ;;                      (type looking)
+    ;;                      (pose ?look)))
+    ;;
+    ;;(setf ?start-pose (exe:perform (desig:an action
+    ;;                       (type detecting)
+    ;;                       (object (desig:an object (type ?object-type))))))
+
   (cpl:with-retry-counters ((grasp-retry 2))
     (cpl:with-failure-handling
         ((common-fail:gripper-closed-completely (e) 
@@ -224,18 +185,27 @@
            (cpl:do-retry grasp-retry
              (setf grasp (cdr grasp))
              (cpl:retry)))
+         
          (desig:designator-error (e)
            (roslisp:ros-warn (cashier-demo) "designator-reference-failure ~a~%" e)
            (cpl:do-retry grasp-retry
            (setf grasp (cdr grasp))
            (cpl:retry))
-           (cpl:fail 'common-fail:high-level-failure)))
+           (cpl:fail 'high-level-grasp-failure)))
                              
-  (grasp-object ?object-type
-                arm *place-pose* (first grasp))))
-  (move *place-nav-pose*)
+      (grasp-object ?object-type
+                    arm
+                    *place-position*
+                    (first grasp))))
+  
+    (move *place-nav-pose*)
 
-  (place-object target-pose arm :?left-grasp (first grasp)))
+    (cpl:with-failure-handling
+        ((common-fail:manipulation-goal-in-collision (e)
+           (roslisp:ros-warn (cashier-demo) "failure happened: ~a~% changing grasp" e)
+           (place-object ?start-pose arm :?left-grasp (first grasp))
+           (return)))
+    (place-object target-pose arm :?left-grasp (first grasp)))))
 
 
 
@@ -299,5 +269,21 @@
   (<- (shape-disabled-sides :circle :left))
   (<- (shape-disabled-sides :circle :right))
   (<- (shape-disabled-sides :circle :front))
-  (<- (shape-disabled-sides :circle :back))
-  )
+  (<- (shape-disabled-sides :circle :back)))
+
+(define-condition high-level-place-failure (cpl:simple-plan-failure)
+  ((description :initarg :description
+                :initform "Failed to place the object"
+                :reader error-description))
+  (:documentation "Failure thrown by high level place function")
+  (:report (lambda (condition stream)
+             (format stream (error-description condition)))))
+
+
+(define-condition high-level-grasp-failure (cpl:simple-plan-failure)
+  ((description :initarg :description
+                :initform "Failed to grasp the object"
+                :reader error-description))
+  (:documentation "Failure thrown by high level grasp function")
+  (:report (lambda (condition stream)
+             (format stream (error-description condition)))))

@@ -140,7 +140,7 @@
   :2nd-lift-translation `(0.0 0.0 ,*lift-z-offset*))
   
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; small-cube ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defparameter *small-cube-pregrasp-xy-offset* 0.15)
+(defparameter *small-cube-pregrasp-xy-offset* 0.10)
 (defparameter *small-cube-grasp-xy-offset* 0.01 "in meters")
 (defparameter *small-cube-grasp-z-offset* 0.001 "in meters")
 (defparameter *small-cube-top-grasp-x-offset* 0.001 "in meters")
@@ -203,7 +203,7 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; snackbar ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defparameter *snackbar-pregrasp-xy-offset* 0.15)
+(defparameter *snackbar-pregrasp-xy-offset* 0.10)
 (defparameter *snackbar-grasp-xy-offset* 0.01 "in meters")
 (defparameter *snackbar-grasp-z-offset* 0.001 "in meters")
 (defparameter *snackbar-top-grasp-x-offset* 0.001 "in meters")
@@ -265,9 +265,9 @@
   :2nd-lift-translation *lift-offset*)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; fruit-juice ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defparameter *fruit-juice-pregrasp-xy-offset* 0.15)
+(defparameter *fruit-juice-pregrasp-xy-offset* 0.10)
 (defparameter *fruit-juice-grasp-xy-offset* 0.01 "in meters")
-(defparameter *fruit-juice-grasp-z-offset* 0.005 "in meters")
+(defparameter *fruit-juice-grasp-z-offset* 0.01 "in meters")
 (defparameter *fruit-juice-top-grasp-x-offset* 0.05 "in meters")
 (defparameter *fruit-juice-top-grasp-z-offset* 0.05 "in meters")
 
@@ -326,7 +326,7 @@
   :lift-translation *lift-offset*
   :2nd-lift-translation *lift-offset*)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; small-book ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defparameter *small-book-pregrasp-xy-offset* 0.15)
+(defparameter *small-book-pregrasp-xy-offset* 0.10)
 (defparameter *small-book-grasp-xy-offset* 0.01 "in meters")
 (defparameter *small-book-grasp-z-offset* 0.005 "in meters")
 (defparameter *small-book-top-grasp-x-offset* 0.05 "in meters")

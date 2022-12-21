@@ -30,27 +30,18 @@
       side)))
 
 (defun scan (object-name side side-list)
-  (let ((scan-area-vector (first (cram-tf:pose->list
+  (let* ((scan-area-vector (first (cram-tf:pose->list
                                   (cram-tf::pose-stamped->pose (get-scan-area)))))
         
         (object-vector (cram-tf:3d-vector->list
-                        (cl-tf2:origin (btr:object-pose object-name)))))
-
-   ;; (if (x-y-z-pose-check scan-area-vector object-vector)
-   ;;     (roslisp:ros-info (scan-object) "object is in the scan area")
-   ;;     (roslisp:ros-info (scan-object) "object is not inside the scan area"))
-    
-   ;;  (if (side-check side object-vector side-list)
-   ;;     (roslisp:ros-info (scan-object)
-   ;;                       "Object has the correct rotation and so the code was scaned")
-   ;;     (roslisp:ros-info (scan-object)
-    ;;                       "Object has the wrong rotation"))
-
+                        (cl-tf2:origin (btr:object-pose object-name))))
+        (scan nil))
+    (spawn-highlight-box (get-scan-area) (list 0.1 0.1 0.05))
     (if (and (side-check side object-vector side-list object-name)
              (x-y-z-pose-check scan-area-vector object-vector))
-        t
-        nil
-        )
+        (setf scan t))
+    (btr-utils:kill-object 'box-1)
+    scan
     ))
 
 

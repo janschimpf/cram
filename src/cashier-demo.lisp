@@ -26,11 +26,13 @@
    (cl-transforms:make-3d-vector -1.2 1.4 0)
    (cl-transforms:euler->quaternion :ax 0 :ay 0 :az pi)))
 
-(defparameter *place-pose*
+
+(defparameter *place-position*
   (cl-transforms-stamped:make-pose-stamped
-   "map" 0.0
+   "map"
+   0.0
    (cl-transforms:make-3d-vector -2 1.2 0.75)
-   (cl-transforms:make-quaternion 0 0 0 1)))
+   (cl-transforms:euler->quaternion :ax 0 :ay 0 :az pi)))
 
 (defparameter *after-scan-nav-pose*
   (cl-transforms-stamped:make-pose-stamped
@@ -45,12 +47,14 @@
    (cl-transforms:make-3d-vector -1.2 0.2 0)
    (cl-transforms:euler->quaternion :ax 0 :ay 0 :az pi)))
 
+(defparameter *place-pose*
+   (list -2 1.2 0.75))
 
 (defparameter spawn-point-1
-  (list -2 2 0.75))
+  (list -2 2 0.85))
 
 (defparameter spawn-point-2
-  (list -2 2.1 0.75))
+  (list -2 2.1 0.85))
 
 (defparameter success-point-1
   (list -2 0.8 0.75))
@@ -184,7 +188,7 @@
                 
 
 (defun handover-test ()
-  (spawn-object-on-counter-general (first spawn-objects-list))
+  ;;(spawn-object-on-counter-general (first spawn-objects-list))
   (urdf-proj:with-simulated-robot
   (let* ((?object-name (first (first spawn-objects-list)))
         (?object-type (second (first spawn-objects-list)))

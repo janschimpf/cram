@@ -2,7 +2,7 @@
 
 (defparameter object-list-bottle
   (list 'bottle-1 :bottle
-        '((-2 2 0.75)(0 0 0 1)) '(0.05 0.05 0.15) (list :front :back :left :right :top) (list nil) :top))
+        '((-2 2 0.75)(0 0 0 1)) '(0.05 0.05 0.15) (list :left :right :front :back :top) (list nil) :top))
 
 
 (defparameter object-list-pringles
@@ -12,7 +12,7 @@
 
 (defparameter object-list-breakfast-cereal
   (list 'breakfast-cereal-1 :breakfast-cereal
-        '((-2 2 0.75) (0 0 0 1)) '(0.05 0.15 0.2) (list :left :right) (list nil) :front))
+        '((-2 2 0.75) (0 0 0 1)) '(0.05 0.15 0.2) (list nil) (list nil) :front))
 
 (defparameter object-list-cup
   (list 'cup-1 :cup
@@ -39,11 +39,11 @@
 
 (defparameter spawn-objects-list (list ;;object-list-breakfast-cereal
                                        object-list-bottle
-                                       object-list-cup
+                                       ;;object-list-cup
                                        object-list-fruit-juice
                                        object-list-breakfast-cereal
                                        object-list-small-book
-                                       ;;object-list-snackbar
+                                       object-list-snackbar
                                        ;;object-list-small-cube
                                        ;;object-list-pringles
                                        ))
@@ -76,3 +76,17 @@
                     '((-2 1.3 0.8) (0 0 0 1))
                     :mass 0.2 :size (cl-transforms:make-3d-vector 0.03 0.03 0.08)
                     :item-type :pringles))
+
+
+(defparameter object-list-small-book-non-mesh
+  (list 'small-book-1 :small-book
+        '((-2 2 0.75)(0 0 0 1)) '(0.05 0.05 0.1) (list nil) (list nil) :bottom))
+
+(defun spawn-highlight-box(pose size)
+  (btr:add-object btr:*current-bullet-world* :box 'box-1
+                  pose 
+                  :color '(0 1 0)
+                  :mass 1
+                  :size size)
+  ;;(btr:simulate btr:*current-bullet-world* 10)
+  )
