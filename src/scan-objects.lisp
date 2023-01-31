@@ -5,7 +5,7 @@
 (defun get-scan-area ()
   (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
-   (cl-transforms:make-3d-vector -2 1.2 0.70)
+   (cl-transforms:make-3d-vector -2 1.2 0.67)
    (cl-transforms:make-quaternion 0 0 0 1)))
 
 ;;for changing the relation of the side-pose from the object to the map
@@ -36,7 +36,7 @@
         (object-vector (cram-tf:3d-vector->list
                         (cl-tf2:origin (btr:object-pose object-name))))
         (scan nil))
-    (spawn-highlight-box (get-scan-area) (list 0.1 0.1 0.05))
+    (spawn-highlight-box (get-scan-area) (list 0.09 0.09 0.03))
     (if (and (side-check side object-vector side-list object-name)
              (x-y-z-pose-check scan-area-vector object-vector))
         (setf scan t))
@@ -77,9 +77,7 @@
     (setf *sides-log* (append (list side-as-is) *sides-log*))
     (btr::png-from-camera-view 
      :png-path path-name)
-    (print "side-check")
-    (print side-as-is)
-    (print side-to-be)
+    
     (if (equal side-to-be side-as-is)
             t
             nil

@@ -9,7 +9,7 @@
   (let ((offset offset-start))
     (cpl:with-retry-counters ((pose-adjustment-retries 15))
     (cpl:with-failure-handling 
-    ((common-fail:high-level-failure (e)
+        ((common-fail:high-level-failure (e)
        (roslisp:ros-warn (cashier-demo) "Falure happend: ~a~% adjusting place postion" e)
        (cpl:do-retry pose-adjustment-retries
          (setf offset (- offset 0.001))
@@ -33,9 +33,6 @@
 ;;takes care of the the needed orientation change to turn the object
 (defun orientation-change (object-name move located-sides)
   (let* ((90-turn (/ pi 2))
-         (axis-bottom (axis-short (first located-sides)))
-         (axis-front (axis-short (second located-sides)))
-         (axis-right (axis-short (third located-sides)))
          (turn
            (cond
              ((string-equal "back-turn" move)
@@ -43,9 +40,9 @@
              ((string-equal "front-turn" move)
               (list (/ pi 2) 0 0))
              ((string-equal "right-turn" move)
-              (list 0 (/ pi 2)  0))
+              (list 0 0 (/ pi 2) ))
              ((string-equal "left-turn" move)
-              (list 0 (-(/ pi 2)) 0))
+              (list 0 0 (-(/ pi 2))))
              ((string-equal "flip" move)
               (list 0 pi 0))
              ((string-equal "left-roation" move)
@@ -53,16 +50,22 @@
              ((string-equal "right-rotation" move)
               (list 0 0 (/ pi 2)))
              (t (print move))))
-
-         (axis-list (list axis-right axis-bottom axis-front))
-         (result (mapcar (lambda (x) (matching-axis x turn))
-                         axis-list)))
+         (result (finding-axis located-sides turn)))
     (cl-tf2:q*
             (cl-tf2:orientation (btr:object-pose object-name))
             (cl-tf2:euler->quaternion
              :ax (first result)
              :ay (third result)
              :az (second result)))))
+
+(defun finding-axis (located-sides turn)
+  (let* ((axis-bottom (axis-short (first located-sides)))
+         (axis-front (axis-short (second located-sides)))
+         (axis-right (axis-short (third located-sides)))
+         (axis-list (list axis-right axis-bottom axis-front)))
+    (mapcar (lambda (x) (matching-axis x turn))
+                         axis-list)))
+
 
 (defun matching-axis (axis list-match)
   (cond
@@ -178,7 +181,7 @@
     ;;                       (type detecting)
     ;;                       (object (desig:an object (type ?object-type))))))
 
-  (cpl:with-retry-counters ((grasp-retry 2))
+  (cpl:with-retry-counters ((grasp-retry 3))
     (cpl:with-failure-handling
         ((common-fail:gripper-closed-completely (e) 
            (roslisp:ros-warn (cashier-demo) "failure happened: ~a~% changing grasp" e)
@@ -200,12 +203,14 @@
   
     (move *place-nav-pose*)
 
+    (cpl:with-retry-counters ((place-retry 3))
     (cpl:with-failure-handling
-        ((common-fail:manipulation-goal-in-collision (e)
+        ((common-fail:manipulation-low-level-failure (e)
            (roslisp:ros-warn (cashier-demo) "failure happened: ~a~% changing grasp" e)
-           (place-object ?start-pose arm :?left-grasp (first grasp))
-           (return)))
-    (place-object target-pose arm :?left-grasp (first grasp)))))
+           (cpl:do-retry place-retry
+           (cpl:retry))
+           (cpl:fail 'high-level-grasp-failure)))
+    (place-object target-pose arm :?left-grasp (first grasp))))))
 
 
 
@@ -241,7 +246,7 @@
   )))
 
 
-  (defun opposite-short (side)
+(defun opposite-short (side)
   (cdaar (prolog:prolog `(or (opposite ,side ?x)
                              (opposite ?x ,side)))))
 (defun axis-short (side)
@@ -254,6 +259,10 @@
   (mapcar (lambda (x) (cdar x))
           (prolog::force-ll  (prolog:prolog `(shape-disabled-sides ,shape ?x)))))
 
+(defun prolog-scan-gtin (object-type)
+   (cdaar (prolog:prolog `(productype-to-gtin ,object-type ?x))))
+
+
 (def-fact-group sides-predicates (opposite)
   (<- (opposite :top :bottom))
   (<- (opposite :left :right))
@@ -265,6 +274,16 @@
   (<- (axis :left -x))
   (<- (axis :top -z))
   (<- (axis :bottom z))
+
+  (<- (productype-to-gtin :snackbar "8718951045118"))
+  (<- (productype-to-gtin :small-cube "4062300020719"))
+  (<- (productype-to-gtin :cup "4062300025318"))
+  (<- (productype-to-gtin :bottle "4062300265998"))
+  (<- (productype-to-gtin :fruit-juice "4015000010320"))
+  (<- (productype-to-gtin :small-book "4004980506206"))
+  (<- (productype-to-gtin :breakfast-cereal "4015000010511"))
+  (<- (productype-to-gtin :pringle "4013162004027"))
+
 
   (<- (shape-disabled-sides :circle :left))
   (<- (shape-disabled-sides :circle :right))

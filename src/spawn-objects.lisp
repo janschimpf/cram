@@ -37,15 +37,14 @@
 
 
 
-(defparameter spawn-objects-list (list ;;object-list-breakfast-cereal
+(defparameter spawn-objects-list (list
                                        object-list-bottle
-                                       ;;object-list-cup
-                                       object-list-fruit-juice
+                                       object-list-cup
+                                       ;;object-list-fruit-juice
                                        object-list-breakfast-cereal
                                        object-list-small-book
                                        object-list-snackbar
-                                       ;;object-list-small-cube
-                                       ;;object-list-pringles
+                                       object-list-small-cube
                                        ))
 
 (defun spawn-object-on-counter-general (list spawn-pose)
@@ -82,11 +81,10 @@
   (list 'small-book-1 :small-book
         '((-2 2 0.75)(0 0 0 1)) '(0.05 0.05 0.1) (list nil) (list nil) :bottom))
 
-(defun spawn-highlight-box(pose size)
+(defun spawn-highlight-box (pose size)
   (btr:add-object btr:*current-bullet-world* :box 'box-1
                   pose 
-                  :color '(0 1 0)
+                  :color '(1.0 0.0 0.0 1.0)
                   :mass 1
-                  :size size)
-  ;;(btr:simulate btr:*current-bullet-world* 10)
-  )
+                  :size size
+                  ))

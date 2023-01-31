@@ -369,6 +369,7 @@
   :2nd-pregrasp-offsets `(,*small-book-pregrasp-xy-offset* 0.0 0.0)
   :lift-translation *lift-offset*
   :2nd-lift-translation *lift-offset*)
+  
 ;; Bottom grasp
 (man-int:def-object-type-to-gripper-transforms :small-book '(:left :right) :bottom
   :grasp-translation `(0.0d0 0.0d0 ,(- *small-book-grasp-z-offset*))

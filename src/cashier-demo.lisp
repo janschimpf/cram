@@ -23,7 +23,7 @@
   (cl-transforms-stamped:make-pose-stamped
    "map"
    0.0
-   (cl-transforms:make-3d-vector -1.2 1.4 0)
+   (cl-transforms:make-3d-vector -1.2 1.2 0)
    (cl-transforms:euler->quaternion :ax 0 :ay 0 :az pi)))
 
 
@@ -37,14 +37,14 @@
 (defparameter *after-scan-nav-pose*
   (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
-   (cl-transforms:make-3d-vector -1.2 0.6 0)
+   (cl-transforms:make-3d-vector -1.2 0.7 0)
    (cl-transforms:euler->quaternion :ax 0 :ay 0 :az pi)))
 
 
 (defparameter *after-unsuccessful-scan-nav-pose*
   (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
-   (cl-transforms:make-3d-vector -1.2 0.2 0)
+   (cl-transforms:make-3d-vector -1.2 0 0)
    (cl-transforms:euler->quaternion :ax 0 :ay 0 :az pi)))
 
 (defparameter *place-pose*
@@ -54,7 +54,7 @@
   (list -2 2 0.85))
 
 (defparameter spawn-point-2
-  (list -2 2.1 0.85))
+  (list -2 2.15 0.85))
 
 (defparameter success-point-1
   (list -2 0.8 0.75))
@@ -125,17 +125,22 @@
 
 (defun place-object (?target-pose ?arm
                      &key ?left-grasp ?right-grasp ?object-placed-on)
+  (exe:perform (desig:an action
+                             (type parking-arms)))
 
   (exe:perform (desig:a motion
                         (type looking)
                         (pose ?target-pose)))
+  
   (exe:perform (desig:an action
                          (type placing)
                          (arm ?arm)
                          (desig:when ?right-grasp
                            (right-grasp ?right-grasp))
+                         
                          (desig:when ?left-grasp
                            (left-grasp ?left-grasp))
+                         
                          (target (desig:a location
                                           (desig:when ?object-placed-on
                                             (on ?object-placed-on))
@@ -158,7 +163,7 @@
                                                   5))
     (setf *unsuccessful-poses-list* (spawn-vector-list unsuccessful-point-1 unsuccesful-point-2
                                                5))
-
+  (btr:simulate btr:*current-bullet-world* 100)
   (urdf-proj:with-simulated-robot
   (loop for object in spawn-objects-list
         do
