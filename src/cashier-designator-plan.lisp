@@ -4,14 +4,14 @@
   (let* ((x (car size))
          (y (cadr size))
          (z (caddr size))
-         (test-list (list nil)))
+         (non-graspable-list (list nil)))
     (if (and (> x 0.09) (> y 0.09))
-        (setf test-list (append test-list (list :top :bottom))))
+        (setf non-graspable-list (append non-graspable-list (list :top :bottom))))
     (if (and (> y 0.09) (> z 0.09))
-        (setf test-list (append test-list (list :right :left))))
+        (setf non-graspable-list (append non-graspable-list (list :right :left))))
     (if (and (> x 0.09) (> z 0.09))
-        (setf test-list (append test-list (list :front :back))))
-    test-list
+        (setf non-graspable-list (append non-graspable-list (list :front :back))))
+    non-graspable-list
     ))
 
 
@@ -42,7 +42,7 @@
            (type symbol ?object-name))
   (print "sides set")
   (move *look-nav-pose*)
-
+  (print "moved")
 
   (let* ((?look *spawn-area*))
     (exe:perform (desig:a motion
@@ -51,14 +51,14 @@
     (exe:perform (desig:an action
                            (type detecting)
                            (object (desig:an object (type ?object-type))))))
-  
+  (print "looked")
   (if (not (car ?non-graspable))
       (setf ?non-graspable (check-object-size ?object-size)))
 
   (if (not (car ?non-scanable))
       (setf ?non-scanable (prolog-shape ?object-type)))
   
-  (print "moved")
+  (print "check for non graspable sides")
 
   (let* ((grasp (cdr (locate-sides ?sides-transformed (origin->list ?object-name))))
          (orientation (cl-tf2:orientation (btr:object-pose ?object-name))))
@@ -196,17 +196,17 @@
 
 
 ;; ========== algin object rotation with robot ===================
-(defun points-to-2dvector (p1 p2)
- (list (- (car p2) (car p1)) (- (cadr p2) (cadr p1))))
+(defun points-to-2dvector (point-1 point-2)
+ (list (- (car point-2) (car point-1)) (- (cadr point-2) (cadr point-1))))
        
 
-(defun 2d-vectors-to-angle (v1 v2)
-  (acos (/ (dot-product-2d v1 v2) (* (v-norm-2d v1) (v-norm-2d v2))))
+(defun 2d-vectors-to-angle (vector-1 vector-2)
+  (acos (/ (dot-product-2d vector-1 vector-2) (* (2d-vector-magnitude vector-1) (2d-vector-magnitude vector-2))))
 )
 
-(defun v-norm-2d (v)
+(defun 2d-vector-magnitude (vector)
   "Returns the magnitude of the vector"
-  (sqrt (dot-product-2d v v)))
+  (sqrt (+ (expt (car vector) 2) (expt (cadr vector) 2))))
 
 (defun dot-product-2d (v-1 v-2)
   "Returns the dot-product of two 2d vectors"
@@ -215,9 +215,6 @@
 
 (defun points-to-angle (p1 p2 p3)
   "creates 2 vectors with p1 as the origin and going towards p2 and p3"
-  (print p1)
-  (print p2)
-  (print p3)
   (2d-vectors-to-angle
    (points-to-2dvector p1 p2)
    (points-to-2dvector p1 p3)))
@@ -229,20 +226,58 @@
              (if (equal (first x) side)
                  (return (second x)))))
 
+(defun angle-direction (robot-base right-side left-side angle)
+  (let* ((right-side-mangnitude (2d-vector-magnitude
+                                 (points-to-2dvector robot-base right-side)))
+         (left-side-magnitude (2d-vector-magnitude
+                               (points-to-2dvector robot-base left-side))))
+    (if (<= right-side-mangnitude left-side-magnitude)
+        angle
+        (- 0 angle))
+    ))
 
     
 (defun align-object (object-name sides-base)
-  (let* ((point-1 (cram-tf:3d-vector->list (cl-tf2:origin (btr:object-pose object-name))))
-         (point-2 (cram-tf:3d-vector->list (cl-tf2:origin *place-nav-pose*)))
+  (let* ((object-location (cram-tf:3d-vector->list (cl-tf2:origin (btr:object-pose object-name))))
+         
+         (robot-base-location (cram-tf:3d-vector->list (cl-tf2:origin *place-nav-pose*)))
+         
          (located (locate-sides
            (transforms-map-t-side object-name sides-base)
            (cram-tf:3d-vector->list
             (cl-tf2:origin (btr:object-pose object-name)))))
-         (side (car (reverse located)))
-         (point-3 (cram-tf:3d-vector->list (cl-tf2:origin (get-correct-side
-                   (transforms-map-t-side object-name sides-base) side))))
-         (angle (list 0 0 (points-to-angle point-1 point-3 point-2)))
-         (axis-found (finding-axis located angle)))
+         
+         (front-side (car (reverse located)))
+         (right-side (cadr located))
+         (left-side (opposite-short (cadr located)))
+         (front-side-location (cram-tf:3d-vector->list (cl-tf2:origin
+                                                        (get-correct-side
+                                                         (transforms-map-t-side
+                                                          object-name sides-base)
+                                                         front-side))))
+         
+         (right-side-location (cram-tf:3d-vector->list (cl-tf2:origin
+                                                        (get-correct-side
+                                                         (transforms-map-t-side
+                                                          object-name sides-base)
+                                                         right-side))))
+         
+         (left-side-location (cram-tf:3d-vector->list (cl-tf2:origin
+                                                        (get-correct-side
+                                                         (transforms-map-t-side
+                                                          object-name sides-base)
+                                                         left-side))))
+         
+         (angle (points-to-angle object-location robot-base-location front-side-location))
+
+         
+         (correct-angle-direction (angle-direction robot-base-location
+                                                   right-side-location
+                                                   left-side-location
+                                                   angle))
+         (rotation (list 0 correct-angle-direction 0))
+         (axis-found (finding-axis located rotation)))
+         (print "after axis") 
     (cl-tf2:q*
             (cl-tf2:orientation (btr:object-pose object-name))
             (cl-tf2:euler->quaternion
@@ -251,8 +286,9 @@
              :az (third axis-found)))))
 
 (defun pick-place-alight-object (object-name sides-base arm object-type)
-  (let* ((located (locate-sides
-           (transforms-map-t-side object-name sides-base)
+  (let* ((transformed (transforms-map-t-side object-name sides-base))
+         (located (locate-sides
+           transformed
            (cram-tf:3d-vector->list
             (cl-tf2:origin (btr:object-pose object-name)))))
          (grasp (cdr located))
@@ -271,7 +307,9 @@
            (cpl:do-retry grasp-retry
            (setf grasp (cdr grasp))
            (cpl:retry))
-           (cpl:fail 'high-level-grasp-failure)))
+          (cpl:fail 'high-level-grasp-failure)))
+
+        (spawn-side-visualisation transformed "pre-alignment")      
     
   (grasp-object object-type
                 arm
@@ -281,5 +319,6 @@
   (place-object (place-after-scan *place-pose* align)
                   arm
                   :?left-grasp
-                  (first grasp))))
+                  (first grasp))
+    (spawn-side-visualisation (transforms-map-t-side object-name sides-base) "after-alignment")))
        

@@ -12,11 +12,11 @@
 
 (defparameter object-list-breakfast-cereal
   (list 'breakfast-cereal-1 :breakfast-cereal
-        '((-2 2 0.75) (0 0 0 1)) '(0.05 0.15 0.2) (list nil) (list nil) :front))
+        '((-2 2 0.75) (0 0 0 1)) '(0.20 0.10 0.25) (list nil) (list nil) :front))
 
 (defparameter object-list-cup
   (list 'cup-1 :cup
-        '((-2 2 0.75)(0 0 0 1)) '(0.05 0.05 0.15) (list :front :back :left :right) (list nil) :top))
+        '((-2 2 0.75)(0 0 0 1)) '(0.03 0.03 0.10) (list :front :back :left :right) (list nil) :top))
 
 (defparameter object-list-small-cube
   (list 'small-cube-1 :small-cube
@@ -38,13 +38,13 @@
 
 
 (defparameter spawn-objects-list (list
-                                       object-list-bottle
+                                       ;;object-list-bottle
                                        object-list-cup
                                        ;;object-list-fruit-juice
-                                       object-list-breakfast-cereal
-                                       object-list-small-book
-                                       object-list-snackbar
-                                       object-list-small-cube
+                                       ;;object-list-breakfast-cereal
+                                       ;;object-list-small-book
+                                       ;;object-list-snackbar
+                                       ;;object-list-small-cube
                                        ))
 
 (defun spawn-object-on-counter-general (list spawn-pose)
@@ -66,7 +66,7 @@
                     :item-type type)))
 
 (defun spawn-bottle ()
-  (btr-utils:spawn-object 'bottle-1 :bottle :color '(1 0 0) :pose '((-2 1.3 0.8) (0 0 0 1)))
+  (btr-utils:spawn-object 'bottle-1 :bottle :color '(0 1 0) :pose '((-2 1.3 0.8) (0 0 0 1)))
   (btr:simulate btr:*current-bullet-world* 10))
 
 (defun spawn-pickup-cylinder-air ()
@@ -82,9 +82,44 @@
         '((-2 2 0.75)(0 0 0 1)) '(0.05 0.05 0.1) (list nil) (list nil) :bottom))
 
 (defun spawn-highlight-box (pose size)
-  (btr:add-object btr:*current-bullet-world* :box 'box-1
-                  pose 
-                  :color '(1.0 0.0 0.0 1.0)
+  (btr:add-object btr:*current-bullet-world* :visualization-box 'box-1
+                   pose 
+                  :color '(0 1 1)
                   :mass 1
                   :size size
                   ))
+
+(defun spawn-highlight-box-2 (pose size color name)
+  (btr:add-object btr:*current-bullet-world*
+                  :visualization-box
+                  name
+                  pose 
+                  :color color
+                  :mass 1
+                  :size size
+                  ))
+
+(defun spawn-side-visualisation (transformed-side-list purpose)
+  (let* ((color-list (list '(1 1 1)
+                           '(1 1 0)
+                           '(1 0 1)
+                           '(0 1 1)
+                           '(1 0 0)
+                           '(0 0 1)))
+         (path-name (concatenate 'string "/tmp/"
+                                 purpose
+                                 ".png")))
+    (loop for side in transformed-side-list
+          for color in color-list
+        do
+           (spawn-highlight-box-2 (cadr side) (list 0.01 0.01 0.01) color (car side))
+           (print color)
+           (print (car side))
+          )
+    (btr::png-from-camera-view :png-path path-name)
+    (loop for side in transformed-side-list
+          do
+             (btr-utils:kill-object (car side)))))
+
+(defun test-case-sides ()
+  (transforms-map-t-side 'bottle-1 (set-sides 'bottle-1 0.1 0.1 0.1)))

@@ -193,7 +193,8 @@
                 
 
 (defun handover-test ()
-  ;;(spawn-object-on-counter-general (first spawn-objects-list))
+         (angle (points-to-angle object-location robot-base-location front-side-location))
+ ;;(spawn-object-on-counter-general (first spawn-objects-list))
   (urdf-proj:with-simulated-robot
   (let* ((?object-name (first (first spawn-objects-list)))
         (?object-type (second (first spawn-objects-list)))

@@ -46,9 +46,9 @@
              ((string-equal "flip" move)
               (list 0 pi 0))
              ((string-equal "left-roation" move)
-              (list 0 0 (- (/ pi 2))))
+              (list 0 (- (/ pi 2)) 0))
              ((string-equal "right-rotation" move)
-              (list 0 0 (/ pi 2)))
+              (list 0 (/ pi 2)) 0)
              (t (print move))))
          (result (finding-axis located-sides turn)))
     (cl-tf2:q*

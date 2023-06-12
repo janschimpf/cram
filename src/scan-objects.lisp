@@ -9,39 +9,40 @@
    (cl-transforms:make-quaternion 0 0 0 1)))
 
 ;;for changing the relation of the side-pose from the object to the map
-(defun set-sides (object-name object-x object-y object-z)
+(defun set-sides (object-name object-x-size object-y-size object-z-size)
   (let ((object-rotation (cl-tf2:orientation
                           (cram-tf::pose-stamped->pose (btr:object-pose object-name))))
        (side-list (list
-                   (list :top (cl-transforms:make-3d-vector 0 0 0.05))
-                   (list :bottom (cl-transforms:make-3d-vector 0 0 -0.05))
-                   
-                   (list :left (cl-transforms:make-3d-vector 0 0.05 0))
-                   (list :right (cl-transforms:make-3d-vector 0 -0.05 0))
-                   
-                   (list :front (cl-transforms:make-3d-vector
-                                 0.05 0 0 ))
-                   (list :back (cl-transforms:make-3d-vector
-                                -0.05 0 0)))))
+                   (list :top (cl-transforms:make-3d-vector 0 0 object-z-size))
+                   (list :bottom (cl-transforms:make-3d-vector 0 0 (- 0 (/ object-z-size 2))))
+                   (list :left (cl-transforms:make-3d-vector 0 (/ object-y-size 2) 0))
+                   (list :right (cl-transforms:make-3d-vector 0 (- 0 (/ object-y-size 2)) 0))
+                   (list :front (cl-transforms:make-3d-vector (/ object-x-size 2) 0 0 ))
+                   (list :back (cl-transforms:make-3d-vector (- 0 (/ object-x-size 2)) 0 0)))))
     (let ((side (mapcar (lambda (x) (list (first x) (cl-tf:make-pose
                          (second x)
                          object-rotation)))
                         side-list)))
       side)))
 
-(defun scan (object-name side side-list)
+(defun scan (object-name type side side-list)
   (let* ((scan-area-vector (first (cram-tf:pose->list
                                   (cram-tf::pose-stamped->pose (get-scan-area)))))
         
         (object-vector (cram-tf:3d-vector->list
                         (cl-tf2:origin (btr:object-pose object-name))))
-        (scan nil))
-    (spawn-highlight-box (get-scan-area) (list 0.09 0.09 0.03))
+         (scanned nil))
+    
+    (spawn-highlight-box (get-scan-area) (list 0.03 0.03 0.03))
+    
     (if (and (side-check side object-vector side-list object-name)
              (x-y-z-pose-check scan-area-vector object-vector))
-        (setf scan t))
+        (setf scanned t))
+    (if scanned
+        (publish-rviz-marker (product-type-and-dan-from-gtin (prolog-scan-gtin type))))
+    
     (btr-utils:kill-object 'box-1)
-    scan
+    scanned
     ))
 
 

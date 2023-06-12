@@ -5,12 +5,12 @@
 
 ;;returns relative bottom, right and front sides in form of a list.
 (defun locate-sides (side-list object-vector)
-  (let* ((right-list (vector-offset object-vector (list 0 -0.05 0)))
-         (front-list (vector-offset object-vector (list +0.05 0 0)))
-         (scan-list  (vector-offset object-vector (list 0 0 -0.05))))
+  (let* ((right-list (vector-offset object-vector (list 0 -0.1 0)))
+         (front-list (vector-offset object-vector (list +0.1 0 0)))
+         (bottom-list  (vector-offset object-vector (list 0 0 -0.1))))
     (let* ((right (caar (shortest-distance-between-all-sides side-list right-list)))
            (front (caar (shortest-distance-between-all-sides side-list front-list)))
-           (bottom (caar (shortest-distance-between-all-sides side-list scan-list))))
+           (bottom (caar (shortest-distance-between-all-sides side-list bottom-list))))
     (list bottom right front)
     )))
 
@@ -98,7 +98,7 @@
        (cpl:fail 'common-fail:high-level-failure)))
       (if (equal nil ?sides-to-check)
           nil
-          (if (not (scan ?object-name ?goal-side ?sides-transformed))
+          (if (not (scan ?object-name ?object-type ?goal-side ?sides-transformed))
               (cpl:fail 'common-fail:high-level-failure)
               T)))))
 

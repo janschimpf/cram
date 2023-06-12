@@ -105,7 +105,9 @@
 
 (defun path-second-step (move-list goal non-graspable)
   (let ((new-sides (second  move-list)))
-    (let ((second-move (remove nil (caar (check-sides-moves (side-changes new-sides non-graspable) goal)))))
+    (let ((second-move (remove nil (caar
+                                    (check-sides-moves
+                                     (side-changes new-sides non-graspable) goal)))))
       (list (first (car move-list)) second-move))))
 
 

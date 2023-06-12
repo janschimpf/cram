@@ -2,7 +2,8 @@
   :author "Jan Schimpf"
   :license "BSD"
 
-  :depends-on (roslisp-utilities 
+  :depends-on (roslisp
+  		roslisp-utilities 
 
                cl-transforms
                cl-transforms-stamped
@@ -45,7 +46,10 @@
                cram-pr2-description
                cram-boxy-description
                cram-donbot-description
-               cram-hsrb-description)
+               cram-hsrb-description
+               
+               visualization_msgs-msg
+               )
 
   :components
   ((:module "src"
