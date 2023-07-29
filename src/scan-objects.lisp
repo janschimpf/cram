@@ -8,22 +8,25 @@
    (cl-transforms:make-3d-vector -2 1.2 0.67)
    (cl-transforms:make-quaternion 0 0 0 1)))
 
-;;for changing the relation of the side-pose from the object to the map
+;;Sets the sides that are needed for scanning and object handling
 (defun set-sides (object-name object-x-size object-y-size object-z-size)
   (let ((object-rotation (cl-tf2:orientation
                           (cram-tf::pose-stamped->pose (btr:object-pose object-name))))
        (side-list (list
                    (list :top (cl-transforms:make-3d-vector 0 0 object-z-size))
-                   (list :bottom (cl-transforms:make-3d-vector 0 0 (- 0 (/ object-z-size 2))))
-                   (list :left (cl-transforms:make-3d-vector 0 (/ object-y-size 2) 0))
-                   (list :right (cl-transforms:make-3d-vector 0 (- 0 (/ object-y-size 2)) 0))
-                   (list :front (cl-transforms:make-3d-vector (/ object-x-size 2) 0 0 ))
-                   (list :back (cl-transforms:make-3d-vector (- 0 (/ object-x-size 2)) 0 0)))))
+                   (list :bottom (cl-transforms:make-3d-vector 0 0 0))
+                   (list :left (cl-transforms:make-3d-vector 0 object-y-size 0))
+                   (list :right (cl-transforms:make-3d-vector 0 (- 0 object-y-size ) 0))
+                   (list :front (cl-transforms:make-3d-vector object-x-size 0 0 ))
+                   (list :back (cl-transforms:make-3d-vector (- 0 object-x-size ) 0 0)))))
     (let ((side (mapcar (lambda (x) (list (first x) (cl-tf:make-pose
                          (second x)
                          object-rotation)))
                         side-list)))
       side)))
+
+(defun set-sides-helper (object-name object-size-list)
+  (set-sides object-name (first object-size-list) (second object-size-list) (third object-size-list)))
 
 (defun scan (object-name type side side-list)
   (let* ((scan-area-vector (first (cram-tf:pose->list

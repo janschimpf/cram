@@ -1,129 +1,5 @@
 (in-package :cashier)
 
-;;; ===== pose changes for placing the object with a different orientation / side ======
-
-(defun place-pose-stability-adjustment
-    (orientation origin-list
-     object-type object-name
-     offset-start)
-  (let ((offset offset-start))
-    (cpl:with-retry-counters ((pose-adjustment-retries 15))
-    (cpl:with-failure-handling 
-        ((common-fail:high-level-failure (e)
-       (roslisp:ros-warn (cashier-demo) "Falure happend: ~a~% adjusting place postion" e)
-       (cpl:do-retry pose-adjustment-retries
-         (setf offset (- offset 0.001))
-         (cpl:retry))
-       (cpl:fail 'common-fail:high-level-failure)))
-      
-
-       (let* ((target-pose
-           (cl-tf2:make-pose-stamped "map" 0 
-                                     (cram-tf:list->3d-vector
-                                      (vector-offset origin-list (list 0 0 offset)))
-                                     orientation )))
-         (let ((?target-pose-test (btr:ensure-pose target-pose)))
-           (print "test return before target-pose")
-           (shortcut-pose-stability (object-desig-shortcut object-type)
-                                    (a location (pose ?target-pose-test)))
-           ?target-pose-test
-           ))))))
-
-
-;;takes care of the the needed orientation change to turn the object
-(defun orientation-change (object-name move located-sides)
-  (let* ((90-turn (/ pi 2))
-         (turn
-           (cond
-             ((string-equal "back-turn" move)
-              (list (- (/ pi 2)) 0 0))
-             ((string-equal "front-turn" move)
-              (list (/ pi 2) 0 0))
-             ((string-equal "right-turn" move)
-              (list 0 0 (/ pi 2) ))
-             ((string-equal "left-turn" move)
-              (list 0 0 (-(/ pi 2))))
-             ((string-equal "flip" move)
-              (list 0 pi 0))
-             ((string-equal "left-roation" move)
-              (list 0 (- (/ pi 2)) 0))
-             ((string-equal "right-rotation" move)
-              (list 0 (/ pi 2)) 0)
-             (t (print move))))
-         (result (finding-axis located-sides turn)))
-    (cl-tf2:q*
-            (cl-tf2:orientation (btr:object-pose object-name))
-            (cl-tf2:euler->quaternion
-             :ax (first result)
-             :ay (third result)
-             :az (second result)))))
-
-(defun finding-axis (located-sides turn)
-  (let* ((axis-bottom (axis-short (first located-sides)))
-         (axis-front (axis-short (second located-sides)))
-         (axis-right (axis-short (third located-sides)))
-         (axis-list (list axis-right axis-bottom axis-front)))
-    (mapcar (lambda (x) (matching-axis x turn))
-                         axis-list)))
-
-
-(defun matching-axis (axis list-match)
-  (cond
-    ((string-equal "X" axis)
-     (first list-match))
-    ((string-equal "-X" axis)
-     (- (first list-match)))
-    ((string-equal "Y" axis)
-     (second list-match))
-    ((string-equal "-Y" axis)
-     (- (second list-match)))
-    ((string-equal "Z" axis)
-     (third list-match))
-    ((string-equal "-Z" axis)
-     (- (third list-match)))
-    ))
-    
-;; takes care of the x-y-z pose when placing the object with the goal of not placing object
-;; inside the table
-(defun vector-change (place-vector bottom-side object-size)
-  (let ((object-depth (first object-size))
-        (object-width (second object-size))
-        (object-height (third object-size)))
-  (cond
-    ((equal :right bottom-side)
-     (vector-offset place-vector
-                    (list 0 object-depth -0.05)))
-    ((equal :left bottom-side)
-     (vector-offset place-vector
-                    (list 0 object-depth 0)))
-    ((equal :top bottom-side)
-     (vector-offset place-vector
-                    (list 0 0 0.07)))
-    ((equal :bottom bottom-side)
-     (vector-offset place-vector
-                    (list 0 0 0)))
-    ((equal :front bottom-side)
-     (vector-offset place-vector
-                    (list -0.05 0 0.04)))
-    ((equal :back bottom-side)
-     (vector-offset place-vector
-                    (list 0 0 0)))
-    (t (print "not sure how we got here but something is wrong, vector-change")))))
-
-;;3-sides
-;;list of sides of the 
-
-
-
-(defun object-desig-shortcut (?object-type)
-  (desig:an object (type ?object-type)))
-
-(defun shortcut-pose-stability (object-desig placing-location)
-  (proj-reasoning:check-placing-pose-stability
-   object-desig
-   placing-location))
-
-
 (defun change-side (&key
                       ((:plan ?plan))
                       ((:object-type ?object-type))
@@ -168,19 +44,159 @@
                
                ))))
 
-(defun execute-change-side (?object-type arm grasp target-pose)
-  
-  (let* ((?look *place-position*)
-         (?start-pose nil))
-    
-    ;;(exe:perform (desig:a motion
-    ;;                      (type looking)
-    ;;                      (pose ?look)))
-    ;;
-    ;;(setf ?start-pose (exe:perform (desig:an action
-    ;;                       (type detecting)
-    ;;                       (object (desig:an object (type ?object-type))))))
 
+
+;;; ===== pose changes for placing the object with a different orientation / side ======
+
+(defun place-pose-stability-adjustment
+    (orientation origin-list
+     object-type object-name
+     offset-start)
+  (let ((offset offset-start))
+    (cpl:with-retry-counters ((pose-adjustment-retries 15))
+    (cpl:with-failure-handling 
+        ((common-fail:high-level-failure (e)
+       (roslisp:ros-warn (cashier-demo) "Falure happend: ~a~% adjusting place postion" e)
+       (cpl:do-retry pose-adjustment-retries
+         (setf offset (- offset 0.001))
+         (cpl:retry))
+       (cpl:fail 'common-fail:high-level-failure)))
+      
+
+      (let* ((target-pose
+               (cl-tf2:make-pose-stamped "map" 0 
+                                         (cram-tf:list->3d-vector
+                                          (vector-offset origin-list (list 0 0 offset)))
+                                         orientation )))
+        
+         (let ((?target-pose-test (btr:ensure-pose target-pose)))
+           (print "test return before target-pose")
+           (shortcut-pose-stability (object-desig-shortcut object-type)
+                                    (a location (pose ?target-pose-test)))
+           ?target-pose-test
+           ))))))
+
+
+;;takes care of the the needed orientation change to turn the object
+(defun orientation-change (object-name move located-sides)
+  (let* ((90-turn (/ pi 2))
+         (turn
+           (cond
+             ((string-equal "back-turn" move)
+              (list 0 (- (/ pi 2)) 0))
+             ((string-equal "front-turn" move)
+              (list 0 (/ pi 2) 0))
+             ((string-equal "right-turn" move)
+              (list (/ pi 2) 0 0 ))
+             ((string-equal "left-turn" move)
+              (list (-(/ pi 2)) 0 0))
+             ((string-equal "flip" move)
+              (list pi 0 0))
+             ((string-equal "left-roation" move)
+              (list 0 0 (- (/ pi 2))))
+             ((string-equal "right-rotation" move)
+              (list 0 0 (/ pi 2)))
+             (t (print move))))
+         (result (finding-axis located-sides turn)))
+    (cl-tf2:q*
+            (cl-tf2:orientation (btr:object-pose object-name))
+            (cl-tf2:euler->quaternion
+             :ax (first turn)
+             :ay (second turn)
+             :az (third turn)))))
+
+(defun finding-axis (located-sides turn)
+  (let* ((axis-bottom (axis-short (first located-sides)))
+         (axis-right (axis-short (second located-sides)))
+         (axis-front (axis-short (third located-sides)))
+
+         (axis-list (list axis-right axis-front axis-bottom)))
+    (print (mapcar (lambda (x) (matching-axis x turn))
+                   axis-list))
+    (print "after match")
+    (mapcar (lambda (x) (matching-axis x turn))
+                   axis-list)))
+
+;; located list is bottom right front
+(defun matching-axis (axis list-match)
+  (cond
+    ((string-equal "X" axis)
+     (first list-match))
+    ((string-equal "-X" axis)
+     (- (first list-match)))
+    
+    ((string-equal "Y" axis)
+     (second list-match))
+    ((string-equal "-Y" axis)
+     (- (second list-match)))
+    
+    ((string-equal "Z" axis)
+     (third list-match))
+    ((string-equal "-Z" axis)
+     (- (third list-match)))
+    ))
+
+
+(defun get-axis (located-sides)
+  (let* ((bottom (nth 1 located-sides))
+         (right (nth 2 located-sides))
+         (front (nth 3 located-sides)))
+  ))
+
+
+;; <<<---->>> Testing
+(defun test-finding-axis ()
+  (let* ((located (list :front :right :top))
+         (turn (list 0 0 (/ pi 2))))
+  (finding-axis located turn)
+    ))
+
+
+    
+;; takes care of the x-y-z pose when placing the object with the goal of not placing object
+;; inside the table
+(defun vector-change (place-vector bottom-side object-size)
+  (let ((object-depth (first object-size))
+        (object-width (second object-size))
+        (object-height (third object-size)))
+  (cond
+    ((equal :right bottom-side)
+     (vector-offset place-vector
+                    (list 0 0 0)))
+    ((equal :left bottom-side)
+     (vector-offset place-vector
+                    (list 0 0 0)))
+    ((equal :top bottom-side)
+     (vector-offset place-vector
+                    (list 0 0 0)))
+    ((equal :bottom bottom-side)
+     (vector-offset place-vector
+                    (list 0 0 0)))
+    ((equal :front bottom-side)
+     (vector-offset place-vector
+                    (list 0 0 0)))
+    ((equal :back bottom-side)
+     (vector-offset place-vector
+                    (list 0 0 0)))
+    (t (print "not sure how we got here but something is wrong, vector-change")))))
+
+
+(defun object-desig-shortcut (?object-type)
+  (desig:an object (type ?object-type)))
+
+(defun shortcut-pose-stability (object-desig placing-location)
+  (proj-reasoning:check-placing-pose-stability
+   object-desig
+   placing-location))
+
+
+
+
+(defun execute-change-side (?object-typ arm grasp target-pose)
+  
+  (multiple-value-bind (?perceived-object)
+      (perceive-object *place-position* ?object-typ)
+ 
   (cpl:with-retry-counters ((grasp-retry 3))
     (cpl:with-failure-handling
         ((common-fail:gripper-closed-completely (e) 
@@ -196,10 +212,10 @@
            (cpl:retry))
            (cpl:fail 'high-level-grasp-failure)))
                              
-      (grasp-object ?object-type
-                    arm
-                    *place-position*
-                    (first grasp))))
+      (grasp-object-with-handling
+       arm
+       (first grasp)
+       ?perceived-object)))
   
     (move *place-nav-pose*)
 
@@ -210,8 +226,13 @@
            (cpl:do-retry place-retry
            (cpl:retry))
            (cpl:fail 'high-level-grasp-failure)))
-    (place-object target-pose arm :?left-grasp (first grasp))))))
-
+      
+      (place-object-with-handling
+       target-pose
+       arm
+       (first grasp)
+       ))))
+)
 
 
 
@@ -268,12 +289,12 @@
   (<- (opposite :left :right))
   (<- (opposite :front :back))
 
-  (<- (axis :front y))
-  (<- (axis :back -y))
+  (<- (axis :front z))
+  (<- (axis :back -z))
   (<- (axis :right x))
   (<- (axis :left -x))
-  (<- (axis :top -z))
-  (<- (axis :bottom z))
+  (<- (axis :top -y))
+  (<- (axis :bottom y))
 
   (<- (productype-to-gtin :snackbar "8718951045118"))
   (<- (productype-to-gtin :small-cube "4062300020719"))

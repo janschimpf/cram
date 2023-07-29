@@ -56,6 +56,7 @@
     :components
     ((:file "package")
      (:file "setup" :depends-on ("package"))
+     (:file "costmaps" :depends-on ("package"))
      (:file "object-knowledge" :depends-on ("package" ))
      (:file "knowrob-client" :depends-on ("package" ))
      (:file "spawn-objects" :depends-on ("package"))

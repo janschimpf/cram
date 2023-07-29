@@ -7,12 +7,17 @@
 (defun locate-sides (side-list object-vector)
   (let* ((right-list (vector-offset object-vector (list 0 -0.1 0)))
          (front-list (vector-offset object-vector (list +0.1 0 0)))
-         (bottom-list  (vector-offset object-vector (list 0 0 -0.1))))
-    (let* ((right (caar (shortest-distance-between-all-sides side-list right-list)))
-           (front (caar (shortest-distance-between-all-sides side-list front-list)))
-           (bottom (caar (shortest-distance-between-all-sides side-list bottom-list))))
+         (bottom-list  (vector-offset object-vector (list 0 0 -0.1)))
+         
+         (right (caar (shortest-distance-between-all-sides side-list right-list)))
+         (updated-side-list-1 (filter-sides (filter-sides side-list right) (opposite-short right)))
+         
+         (front (caar (shortest-distance-between-all-sides updated-side-list-1 front-list)))
+         (updated-side-list-2 (filter-sides (filter-sides updated-side-list-1 front) (opposite-short front)))
+         
+         (bottom (caar (shortest-distance-between-all-sides updated-side-list-2 bottom-list))))
     (list bottom right front)
-    )))
+    ))
 
 (defun vector-offset (vector offset-list)
   (let ((x (first offset-list))
@@ -23,13 +28,23 @@
         (+ (third vector) z))))
 
 
+(defun filter-sides (side-list already-located-side)
+  (remove nil
+          (mapcar (lambda (x)
+                    (if (equal (car x) already-located-side)
+                        nil
+                        x))
+                  side-list) 
+  ))
+
 ;; ============= executing the path plan ====================
 
-;; executes the path plan 
+
 
 (defun origin->list (object-name)
-    (cram-tf:3d-vector->list (cl-tf2:origin (btr:object-pose object-name))))
+  (cram-tf:3d-vector->list (cl-tf2:origin (btr:object-pose object-name))))
 
+;; executes the path plan 
 ;; iterates over the to scan sides.
 ;; first gets the current bottom side, front side and right side
 ;; then the path plan the path, execute the path, update object, scan
@@ -78,7 +93,8 @@
 
            (let* ((?check-side (next-side-to-check ?located-sides ?sides-to-check)))
 
-             (print "before change side")
+             (print-before-change-side)
+             (print ?check-side)
            (if (not (equal nil ?check-side))
              (exe:perform
               (desig:an action
@@ -102,6 +118,17 @@
               (cpl:fail 'common-fail:high-level-failure)
               T)))))
 
+(defun print-before-change-side ()
+  (print "_________________________
+___________________________________
+___________________________________
+___________________________________
+Before change side ________________
+___________________________________
+___________________________________
+___________________________________"
+         ))
+
 (defun next-side-to-check (located-sides sides-to-check)
   (let* ((right (second located-sides))
          (left (opposite-short (second located-sides)))
@@ -116,4 +143,8 @@
              (when (not (null (member x sides-to-check)))
                (return x)))))
 
-  
+(defun test-next-side-to-check ()
+  (let*((side (list :front :right :top))
+        (check (list :top :back)))
+    (next-side-to-check side check)
+    ))

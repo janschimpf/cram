@@ -48,6 +48,10 @@
 (defmethod man-int:get-action-gripping-effort :heuristics 20
     ((object-type (eql :small-book))) 50)
 
+
+(defmethod man-int:get-action-gripping-effort :heuristics 20
+    ((object-type (eql :small-fruit-juice))) 50)
+
 (defmethod man-int:get-action-gripper-opening :heuristics 20
     ((object-type (eql :pringles))) 0.10)
 
@@ -63,9 +67,11 @@
 (defmethod man-int:get-action-gripper-opening :heuristics 20
     ((object-type (eql  :snackbar))) 0.10)
 
-
 (defmethod man-int:get-action-gripper-opening :heuristics 20
     ((object-type (eql :small-cube))) 0.10)
+  
+(defmethod man-int:get-action-gripper-opening :heuristics 20
+    ((object-type (eql :small-fruit-juice))) 0.10)
 
 (defmethod man-int:get-object-type-carry-config :heuristics 20
     ((object-type (eql :pringles)) grasp)
@@ -85,6 +91,10 @@
   
 (defmethod man-int:get-object-type-carry-config :heuristics 20
     ((object-type (eql  :small-cube)) grasp)
+  :carry)
+  
+(defmethod man-int:get-object-type-carry-config :heuristics 20
+    ((object-type (eql  :small-fruit-juice)) grasp)
   :carry)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; pringles ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -382,6 +392,70 @@
 ;; Top grasp
 (man-int:def-object-type-to-gripper-transforms :small-book '(:left :right) :top
   :grasp-translation `(,(- *small-book-top-grasp-x-offset*) 0.0d0 ,*small-book-top-grasp-z-offset*)
+  :grasp-rot-matrix man-int:*z-across-y-grasp-rotation*
+  :pregrasp-offsets *lift-offset*
+  :2nd-pregrasp-offsets *lift-offset*
+  :lift-translation *lift-offset*
+  :2nd-lift-translation *lift-offset*)
+  
+  
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; small-fruit-juice ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defparameter *small-fruit-juice-pregrasp-xy-offset* 0.03)
+(defparameter *small-fruit-juice-grasp-xy-offset* 0.01 "in meters")
+(defparameter *small-fruit-juice-grasp-z-offset* 0.01 "in meters")
+(defparameter *small-fruit-juice-top-grasp-x-offset* 0.01 "in meters")
+(defparameter *small-fruit-juice-top-grasp-z-offset* 0.01 "in meters")
+
+;; Side grasp
+
+(man-int:def-object-type-to-gripper-transforms :small-fruit-juice '(:left :right) :left-side
+  :grasp-translation `(0.0d0 ,(- *small-fruit-juice-grasp-xy-offset*) ,*small-fruit-juice-grasp-z-offset*)
+  :grasp-rot-matrix man-int:*y-across-z-flipped-grasp-rotation*
+  :pregrasp-offsets `(0.0 ,*small-fruit-juice-pregrasp-xy-offset* ,*lift-z-offset*)
+  :2nd-pregrasp-offsets `(0.0 ,*small-fruit-juice-pregrasp-xy-offset* 0.0)
+  :lift-translation *lift-offset*
+  :2nd-lift-translation *lift-offset*)
+
+(man-int:def-object-type-to-gripper-transforms :small-fruit-juicek '(:left :right) :right-side
+  :grasp-translation `(0.0d0 ,*small-fruit-juice-grasp-xy-offset* ,*small-fruit-juice-grasp-z-offset*)
+  :grasp-rot-matrix man-int:*-y-across-z-flipped-grasp-rotation*
+  :pregrasp-offsets `(0.0 ,(- *small-fruit-juice-pregrasp-xy-offset*) ,*lift-z-offset*)
+  :2nd-pregrasp-offsets `(0.0 ,(- *small-fruit-juice-pregrasp-xy-offset*) 0.0)
+  :lift-translation *lift-offset*
+  :2nd-lift-translation *lift-offset*)
+  
+;; Back grasp
+
+(man-int:def-object-type-to-gripper-transforms :small-fruit-juice '(:left :right) :back
+  :grasp-translation `(,*small-fruit-juice-grasp-xy-offset* 0.0d0 ,*small-fruit-juice-grasp-z-offset*)
+  :grasp-rot-matrix man-int:*-x-across-z-grasp-rotation-2*
+  :pregrasp-offsets `(,(- *small-fruit-juice-pregrasp-xy-offset*) 0.0 ,*lift-z-offset*)
+  :2nd-pregrasp-offsets `(,(- *small-fruit-juice-pregrasp-xy-offset*) 0.0 0.0)
+  :lift-translation *lift-offset*
+  :2nd-lift-translation *lift-offset*)
+
+;; Front grasp
+
+(man-int:def-object-type-to-gripper-transforms :small-fruit-juice '(:left :right) :front
+  :grasp-translation `(,(- *small-fruit-juice-grasp-xy-offset*) 0.0d0 ,*small-fruit-juice-grasp-z-offset*)
+  :grasp-rot-matrix man-int:*x-across-z-grasp-rotation*
+  :pregrasp-offsets `(,*small-fruit-juice-pregrasp-xy-offset* 0.0 ,*lift-z-offset*)
+  :2nd-pregrasp-offsets `(,*small-fruit-juice-pregrasp-xy-offset* 0.0 0.0)
+  :lift-translation *lift-offset*
+  :2nd-lift-translation *lift-offset*)
+  
+;; Bottom grasp
+(man-int:def-object-type-to-gripper-transforms :small-fruit-juice '(:left :right) :bottom
+  :grasp-translation `(0.0d0 0.0d0 ,(- *small-fruit-juice-grasp-z-offset*))
+  :grasp-rot-matrix man-int:*-z-across-x-grasp-rotation*
+  :pregrasp-offsets `(0.0 0.0 ,(- *lift-z-offset*))
+  :2nd-pregrasp-offsets `(0.0 0 ,(- *lift-z-offset*))
+  :lift-translation *lift-offset*
+  :2nd-lift-translation *lift-offset*)
+  
+;; Top grasp
+(man-int:def-object-type-to-gripper-transforms :small-fruit-juice '(:left :right) :top
+  :grasp-translation `(,(- *small-fruit-juice-top-grasp-x-offset*) 0.0d0 ,*small-fruit-juice-top-grasp-z-offset*)
   :grasp-rot-matrix man-int:*z-across-y-grasp-rotation*
   :pregrasp-offsets *lift-offset*
   :2nd-pregrasp-offsets *lift-offset*

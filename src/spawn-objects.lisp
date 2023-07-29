@@ -2,7 +2,7 @@
 
 (defparameter object-list-bottle
   (list 'bottle-1 :bottle
-        '((-2 2 0.75)(0 0 0 1)) '(0.05 0.05 0.15) (list :left :right :front :back :top) (list nil) :top))
+        '((-2 2 0.75)(0 0 0 1)) '(0.05 0.05 0.10) (list :left :right :front :back :top) (list nil) :top))
 
 
 (defparameter object-list-pringles
@@ -12,7 +12,7 @@
 
 (defparameter object-list-breakfast-cereal
   (list 'breakfast-cereal-1 :breakfast-cereal
-        '((-2 2 0.75) (0 0 0 1)) '(0.20 0.10 0.25) (list nil) (list nil) :front))
+        '((-2 2 0.75) (0 0 0 1)) '(0.10 0.05 0.15) (list nil) (list nil) :back))
 
 (defparameter object-list-cup
   (list 'cup-1 :cup
@@ -27,9 +27,9 @@
         '((-2 2 0.75)(0 0 0 1)) '(0.05 0.05 0.15) (list :front :back :left :right) (list nil) :top))
 
 
-(defparameter object-list-fruit-juice
-  (list 'fruit-juice-1 :fruit-juice
-        '((-2 2 0.75)(0 0 0 1)) '(0.05 0.05 0.15) (list :top) (list nil) :right))
+(defparameter object-list-small-fruit-juice
+  (list 'small-fruit-juice-1 :small-fruit-juice
+        '((-2 2 0.75)(0 0 0 1)) '(0.04 0.04 0.10) (list :top) (list nil) :right))
 
 (defparameter object-list-small-book
   (list 'small-book-1 :small-book
@@ -38,10 +38,10 @@
 
 
 (defparameter spawn-objects-list (list
-                                       ;;object-list-bottle
+                                       object-list-bottle
                                        object-list-cup
-                                       ;;object-list-fruit-juice
-                                       ;;object-list-breakfast-cereal
+                                       object-list-breakfast-cereal
+                                       ;;object-list-small-fruit-juice
                                        ;;object-list-small-book
                                        ;;object-list-snackbar
                                        ;;object-list-small-cube
@@ -77,10 +77,6 @@
                     :item-type :pringles))
 
 
-(defparameter object-list-small-book-non-mesh
-  (list 'small-book-1 :small-book
-        '((-2 2 0.75)(0 0 0 1)) '(0.05 0.05 0.1) (list nil) (list nil) :bottom))
-
 (defun spawn-highlight-box (pose size)
   (btr:add-object btr:*current-bullet-world* :visualization-box 'box-1
                    pose 
@@ -88,6 +84,24 @@
                   :mass 1
                   :size size
                   ))
+
+(defun table-reenforcement-scan ()
+  (btr:add-object btr:*current-bullet-world* :box 'table-scan
+                  '((-2 1.3 0.68) (0 0 0 1))
+                  :color '(0 1 0.8)
+                  :mass 1
+                  :size '(0.4 0.8 0.02)
+                  ))
+
+(defun table-reenforcement-spawn ()
+  (btr:add-object btr:*current-bullet-world* :box 'table-spawn
+                  '((-2 2.3 0.68) (0 0 0 1))
+                  :color '(0 1 1)
+                  :mass 1
+                  :size '(0.4 0.8 0.02)
+                  ))
+             
+
 
 (defun spawn-highlight-box-2 (pose size color name)
   (btr:add-object btr:*current-bullet-world*
@@ -123,3 +137,4 @@
 
 (defun test-case-sides ()
   (transforms-map-t-side 'bottle-1 (set-sides 'bottle-1 0.1 0.1 0.1)))
+
