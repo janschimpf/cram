@@ -31,7 +31,7 @@
   (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
    (cl-transforms:make-3d-vector -2 2.4 0.75)
-   (cl-transforms:euler->quaternion :ax 0 :ay 0 :az 0)))
+   (cl-transforms:euler->quaternion :ax 0 :ay 0 :az pi)))
 
 
 (defparameter *place-nav-pose*
@@ -103,37 +103,11 @@
                              (third 3d-pose1)
                              ))))
 
-
-(defun area->pose-stamped-list (pose-1 pose-2 number-of-places)
-  (let* ((origin-pose-1 (cl-tf2:origin pose-1))
-         (origin-pose-2 (cl-tf2:origin pose-2))
-         (2d-vector (list (- (cl-tf2:x origin-pose-2)
-                             (cl-tf2:x origin-pose-1)
-                          
-                          (- (cl-tf2:y origin-pose-2)
-                             (cl-tf2:y origin-pose-1))))))
-    (print "creating list")
-    (print origin-pose-1)
-    (print (cl-tf2:x origin-pose-1))
-    (print (cl-tf2:make-3d-vector
-                         (+ (cl-tf2:x origin-pose-1)
-                            (* (first 2d-vector) 0))
-                         (+ (cl-tf2:y origin-pose-1)
-                            (* (second 2d-vector) 0))
-                         (cl-tf2:z origin-pose-1))
-           (cl-tf2:orientation pose-1))
-    
-         (loop for a from 1 to number-of-places
-               collect (cl-transforms-stamped:make-pose-stamped
-                        "map" 0
-                        (cl-tf2:make-3d-vector
-                         (+ (cl-tf2:x origin-pose-1)
-                            (* (first 2d-vector) (- a 1)))
-                         (+ (cl-tf2:y origin-pose-1)
-                            (* (second 2d-vector) (- a 1)))
-                         (cl-tf2:z origin-pose-1))
-                        (cl-tf2:orientation pose-1)
-                             ))))
+(defun vector-addition (v1 v2)
+  (cl-tf2:make-3d-vector
+   (+ (cl-tf2:x v1) (cl-tf2:x v2))
+   (+ (cl-tf2:y v1) (cl-tf2:y v2))
+   (+ (cl-tf2:z v1) (cl-tf2:z v2))))
 
 
 (defun navigation-to-goal-for-detect (location)
@@ -251,22 +225,23 @@
         (?arms (list :left))
         (?non-scanable (fifth object))
         (?non-graspable (sixth object))
-        (?search-area (list *spawn-area*))
+        (?search-area (list *spawn-area* *second-spawn-area*))
         (?scan-pose (list *place-position*))
         (?success-pose (first *unsuccessful-poses-list*))
         (?failed-pose  (first *unsuccessful-poses-list*))
-        (?object (desig:a object (type ?object-type))))
+        (?object (desig:an object
+                           (:type ?object-type)
+                           (:size ?object-size)
+                           (:non-scanable ?non-scanable)
+                           (:non-graspable ?non-graspable)
+                                          )))
 
     (exe:perform (desig:an action
                            (type cashier)
-                           (object-list object)
                            (arm ?arms)
-                           (non-scanable ?non-scanable)
-                           (non-graspable ?non-graspable)
                            (object-name ?object-name)
-                           (object-type ?object-type)
-                           (object-size ?object-size)
                            (goal-side ?goal-side)
+                           
                            (search-area ?search-area)
                            (scan-pose ?scan-pose)
                            (success-pose ?success-pose)

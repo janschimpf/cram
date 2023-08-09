@@ -19,7 +19,7 @@
 
 
 (defun cashier-object (&key
-                         ((:object-type ?object-typ))
+                         ((:object-type ?object-type))
                          ((:object-name ?object-name))
                          ((:arm ?arm))
                          ((:non-scanable ?non-scanable))
@@ -35,7 +35,7 @@
                        &allow-other-keys)
 
   (declare (type keyword
-                 ?object-typ
+                 ?object-type
                  ?goal-side)
            
            (type list
@@ -48,9 +48,8 @@
                  ?search-poses
                  ?scan-pose
                  ?success-pose
-                 ?failed-pose
-                 )
-           
+                 ?failed-pose)
+                 
            (type symbol ?object-name))
   
   (print ?search-poses)
@@ -60,55 +59,56 @@
   
   (let* ((?nav-pose (first ?search-poses)))
     (move (desig:reference (desig:a location (locate ?nav-pose) (arm (first ?arm))))))
-  
   (print "moved to first look nav pose")
   
   (multiple-value-bind (?perceived-object)
-      (perceive-object (first ?search-poses) ?object-typ)
+      (perceive-object (first ?search-poses) ?object-type)
+    (print ?perceived-object)) 
 
 
-  (if (not (car ?non-graspable))
-      (setf ?non-graspable (check-object-size ?object-size)))
+  ;; (if (not (car ?non-graspable))
+  ;;     (setf ?non-graspable (check-object-size ?object-size)))
 
-  (if (not (car ?non-scanable))
-      (setf ?non-scanable (prolog-shape ?object-typ)))
+  ;; (if (not (car ?non-scanable))
+  ;;     (setf ?non-scanable (prolog-shape ?object-type)))
   
-  (print "check for non graspable sides")
+  ;; (print "check for non graspable sides")
 
-    (let* ((object-pose (man-int:get-object-pose-in-map ?perceived-object))
-           (grasp (which-sides-can-be-grasped
-                   (locate-sides ?sides-transformed
-                                 (cram-tf:3d-vector->list (cl-tf2:origin object-pose)))
-                 ?non-graspable))
-           (orientation (cl-tf2:orientation object-pose)))
+  ;;   (let* ((object-pose (man-int:get-object-pose-in-map ?perceived-object))
+  ;;          (grasp (which-sides-can-be-grasped
+  ;;                  (locate-sides ?sides-transformed
+  ;;                                (cram-tf:3d-vector->list (cl-tf2:origin object-pose)))
+  ;;                ?non-graspable))
+  ;;          (orientation (cl-tf2:orientation object-pose)))
     
-      (pick-place-object (car ?scan-pose) (first ?search-poses)
-                       grasp ?arm ?object-typ
-                       orientation *place-pose*)))
+  ;;     (pick-place-object (car ?scan-pose) (first ?search-poses)
+  ;;                      grasp ?arm ?object-type
+  ;;                      orientation *place-pose*)))
     
-  (multiple-value-bind (?perceived-object)
-      (perceive-object (first ?scan-pose) ?object-typ)
+  ;; (multiple-value-bind (?perceived-object)
+  ;;     (perceive-object (first ?scan-pose) ?object-type)
       
-    (pick-place-alight-object ?object-name ?sides-base ?arm
-                              ?object-typ ?non-graspable ?perceived-object))
+  ;;   (pick-place-alight-object ?object-name ?sides-base ?arm
+  ;;                             ?object-type ?non-graspable ?perceived-object))
 
   
-  (if
-   (exe:perform (desig:an action
-                         (:type :scanning)
-                         (:arm ?arm)
-                         (:non-scanable ?non-scanable)
-                         (:non-graspable ?non-graspable)
-                         (:object-name ?object-name)
-                         (:object-type ?object-typ)
-                         (:object-size ?object-size)
-                         (:goal-side ?goal-side)
-                         (:sides-base ?sides-base)))
-   (sucessful-scan ?object-typ ?object-name ?sides-base
-                   ?arm ?non-graspable (first ?scan-pose))
+  ;; (if
+  ;;  (exe:perform (desig:an action
+  ;;                        (:type :scanning)
+  ;;                        (:arm ?arm)
+  ;;                        (:non-scanable ?non-scanable)
+  ;;                        (:non-graspable ?non-graspable)
+  ;;                        (:object-name ?object-name)
+  ;;                        (:object-type ?object-type)
+  ;;                        (:object-size ?object-size)
+  ;;                        (:goal-side ?goal-side)
+  ;;                        (:sides-base ?sides-base)))
+  ;;  (sucessful-scan ?object-type ?object-name ?sides-base
+  ;;                  ?arm ?non-graspable (first ?scan-pose))
    
-   (unsucessful-scan ?object-typ ?object-name ?sides-base
-                     ?arm ?non-graspable (first ?scan-pose))) 
+  ;;  (unsucessful-scan ?object-type ?object-name ?sides-base
+  ;;                    ?arm ?non-graspable (first ?scan-pose)))
+  
   )
 
 

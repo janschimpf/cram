@@ -152,23 +152,23 @@
   (prolog:<- (desig:action-grounding ?action-designator
                                      (cashier-object ?resolved-action-designator))
 
-    
     (desig-prop ?action-designator (:type :cashier))
     (desig-prop ?action-designator (:object-name ?object-name))
-    (desig-prop ?action-designator (:object-type ?object-type))
     (desig-prop ?action-designator (:arm ?arm))
-    (desig-prop ?action-designator (:non-scanable ?non-scanable))
-    (desig-prop ?action-designator (:non-graspable ?non-graspable))
     (desig-prop ?action-designator (:goal-side ?goal-side))
-    (desig-prop ?action-designator (:object-size ?object-size))
-    (desig-prop ?action-designator (:object-list ?object-list))
 
     (desig-prop ?action-designator (:object ?object-designator))
-    (spec:property ?action-designator (:object ?object-designator))
     (desig:current-designator ?object-designator ?current-desig)
+    (desig-prop ?current-desig (:type ?type))
+    (desig-prop ?current-desig (:size ?size))
+    (desig-prop ?current-desig (:non-scanable ?n-scan)) 
+    (desig-prop ?current-desig (:non-graspable ?n-grasp)) 
     
     (desig-prop ?action-designator (:search-area ?search-area))
-    (lisp-fun create-poses ?search-area ?search-poses)
+    (lisp-fun area->pose-stamped-list
+              ?search-area
+              0.2
+              ?search-poses)
 
     (desig-prop ?action-designator (:scan-pose ?scan-pose))
     
@@ -176,18 +176,18 @@
 
     (desig-prop ?action-designator (:failed-pose ?failed-pose))
     
-    (lisp-fun set-sides-helper ?object-name ?object-size  ?sides-base)
+    (lisp-fun set-sides-helper ?object-name ?size  ?sides-base)
     (lisp-fun transforms-map-t-side ?object-name ?sides-base ?sides-transformed)
     
     (desig:designator :action ((:type :cashier)
-                               (:object-type ?object-type)
+                               (:object-type ?type)
                                (:object-name ?object-name)
                                (:arm ?arm)
-                               (:non-scanable ?non-scanable)
-                               (:non-graspable ?non-graspable)
+                               (:non-scanable ?n-scan)
+                               (:non-graspable ?n-grasp)
                                (:goal-side ?goal-side)
                                (:sides-base ?sides-base)
-                               (:object-size ?object-size)
+                               (:object-size ?size)
                                (:sides-transformed ?sides-transformed)
                                (:search-poses ?search-poses)
                                (:scan-pose ?scan-pose)
@@ -287,4 +287,29 @@
                       ?resolved-action-designator)))
 
 
-
+(defun area->pose-stamped-list (?search-area distance-between-spots)
+  ;;first pose is the starting place and gives the orientation of all other sports
+  ;;second pose gives the overall distance and how the offset vectors should be orientated.
+  
+  (let* ((pose-1 (first ?search-area))
+         (pose-2 (second ?search-area))
+         (origin-vector-1 (cl-tf2:origin pose-1))
+         (orientation-pose-1 (cl-tf2:orientation pose-1))
+         (origin-vector-2 (cl-tf2:origin pose-2))
+         (orientation-pose-2 (cl-tf2:orientation pose-2))
+         
+         (length (cl-tf2:v-dist origin-vector-1 origin-vector-2))
+         (times (/ length distance-between-spots))
+         (rounded (if (>= times 1)
+                      (round times)
+                      0)))
+    (loop for num from 0 to rounded
+          collect (cl-transforms-stamped:make-pose-stamped
+                   "map" 0
+                   (vector-addition
+                    origin-vector-1
+                    (cl-transforms:rotate
+                     orientation-pose-2
+                     (cl-tf2:make-3d-vector (* distance-between-spots num) 0 0)))
+                   orientation-pose-1)
+                   )))
