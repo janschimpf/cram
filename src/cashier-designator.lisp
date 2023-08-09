@@ -153,42 +153,60 @@
                                      (cashier-object ?resolved-action-designator))
 
     (desig-prop ?action-designator (:type :cashier))
-    (desig-prop ?action-designator (:object-name ?object-name))
-    (desig-prop ?action-designator (:arm ?arm))
-    (desig-prop ?action-designator (:goal-side ?goal-side))
 
     (desig-prop ?action-designator (:object ?object-designator))
     (desig:current-designator ?object-designator ?current-desig)
     (desig-prop ?current-desig (:type ?type))
-    (desig-prop ?current-desig (:size ?size))
-    (desig-prop ?current-desig (:non-scanable ?n-scan)) 
-    (desig-prop ?current-desig (:non-graspable ?n-grasp)) 
     
-    (desig-prop ?action-designator (:search-area ?search-area))
-    (lisp-fun area->pose-stamped-list
-              ?search-area
-              0.2
-              ?search-poses)
+    (and (desig-prop ?action-designator (:arm ?arm))
+         (not (equal ?arm (nil))))
 
-    (desig-prop ?action-designator (:scan-pose ?scan-pose))
     
-    (desig-prop ?action-designator (:success-pose ?success-pose))
+    (or (and (desig-prop ?current-desig (:size ?size))
+             (not (equal ?size (nil))))
+        (lisp-fun add-size-for-unkown ?size))
+             
+    (or (and (desig-prop ?current-desig (:non-scanable ?n-scan))
+             (not (equal ?n-scan (nil))))
+        (lisp-fun prolog-shape ?type ?n-scan))
 
-    (desig-prop ?action-designator (:failed-pose ?failed-pose))
+    (or (and (desig-prop ?current-desig (:non-graspable ?n-grasp))
+             (not (equal ?n-scan (nil))))
+        (lisp-fun check-object-size ?size ?n-grasp))
     
-    (lisp-fun set-sides-helper ?object-name ?size  ?sides-base)
-    (lisp-fun transforms-map-t-side ?object-name ?sides-base ?sides-transformed)
+    (or (desig-prop ?action-designator (:distance-between-spots ?dis))
+        (lisp-fun defaul-distance ?dis))
+
+    
+    (and (desig-prop ?action-designator (:search-area ?search-area))
+         (not (equal ?search-area (nil)))
+         (or (and (lisp-fun single-pose-or-area ?search-area ?T)
+                  (lisp-fun area->pose-stamped-list
+                            ?search-area
+                            ?dis
+                            ?search-poses))
+             (lisp-fun single-pose-search ?search-area ?search-poses)))
+    
+    (or (and (desig-prop ?action-designator (:goal-side ?goal-side))
+             (not (equal nil)))
+        (lisp-fun unknown-goal ?goal-side))
+             
+    (and (desig-prop ?action-designator (:scan-pose ?scan-pose))
+         (not (equal ?scan-pose nil)))
+    
+    (and (desig-prop ?action-designator (:success-pose ?success-pose))
+         (not (equal ?success-pose nil)))
+
+    (and (desig-prop ?action-designator (:failed-pose ?failed-pose))
+         (not (equal ?failed-pose nil)))
     
     (desig:designator :action ((:type :cashier)
                                (:object-type ?type)
-                               (:object-name ?object-name)
                                (:arm ?arm)
                                (:non-scanable ?n-scan)
                                (:non-graspable ?n-grasp)
                                (:goal-side ?goal-side)
-                               (:sides-base ?sides-base)
                                (:object-size ?size)
-                               (:sides-transformed ?sides-transformed)
                                (:search-poses ?search-poses)
                                (:scan-pose ?scan-pose)
                                (:success-pose ?success-pose) 
@@ -312,4 +330,21 @@
                      orientation-pose-2
                      (cl-tf2:make-3d-vector (* distance-between-spots num) 0 0)))
                    orientation-pose-1)
-                   )))
+          )))
+
+(defun add-size-for-unkown ()
+  (list 0.05 0.05 0.05))
+
+(defun single-pose-or-area (list)
+  (if (> (length list) 1)
+      t
+      nil))
+
+(defun single-pose-search (pose)
+  pose)
+
+(defun unknown-goal ()
+  nil)
+
+(defun prolog-helper (type)
+  (prolog-shape type))

@@ -1,5 +1,6 @@
 (in-package :cashier)
 (defparameter *current-grasp* nil)
+(defparameter *base-sides* nil)
 
 (defun check-object-size (size)
   (let* ((x (car size))
@@ -20,13 +21,11 @@
 
 (defun cashier-object (&key
                          ((:object-type ?object-type))
-                         ((:object-name ?object-name))
                          ((:arm ?arm))
                          ((:non-scanable ?non-scanable))
                          ((:non-graspable ?non-graspable))
                          ((:goal-side ?goal-side))
                          ((:sides-base ?sides-base))
-                         ((:sides-transformed ?sides-transformed))
                          ((:object-size ?object-size))
                          ((:search-poses ?search-poses))
                          ((:scan-pose ?scan-pose))
@@ -35,12 +34,9 @@
                        &allow-other-keys)
 
   (declare (type keyword
-                 ?object-type
-                 ?goal-side)
+                 ?object-type)
            
            (type list
-                 ?sides-base
-                 ?sides-transformed
                  ?object-size
                  ?arm
                  ?non-scanable
@@ -48,14 +44,8 @@
                  ?search-poses
                  ?scan-pose
                  ?success-pose
-                 ?failed-pose)
-                 
-           (type symbol ?object-name))
+                 ?failed-pose))
   
-  (print ?search-poses)
-  (print ?scan-pose)
-  (print ?success-pose)
-  (print ?failed-pose)
   
   (let* ((?nav-pose (first ?search-poses)))
     (move (desig:reference (desig:a location (locate ?nav-pose) (arm (first ?arm))))))
@@ -64,12 +54,16 @@
   (multiple-value-bind (?perceived-object)
       (perceive-object (first ?search-poses) ?object-type)
     
+  (let* ((?object-name (desig:desig-prop-value ?perceived-object :name))
+         (?base-sides (set-sides-helper ?object-name ?object-size))
+         (?sides-transformed (transforms-map-t-side ?object-name ?base-sides)))
+    (setf *base-sides* ?base-sides)
 
-  (if (not (car ?non-graspable))
-      (setf ?non-graspable (check-object-size ?object-size)))
+  ;; (if (not (car ?non-graspable))
+  ;;     (setf ?non-graspable (check-object-size ?object-size)))
 
-  (if (not (car ?non-scanable))
-      (setf ?non-scanable (prolog-shape ?object-type)))
+  ;; (if (not (car ?non-scanable))
+  ;;     (setf ?non-scanable (prolog-shape ?object-type)))
   
   (print "check for non graspable sides")
 
@@ -82,33 +76,35 @@
     
       (pick-place-object (car ?scan-pose) (first ?search-poses)
                        grasp ?arm ?object-type
-                       orientation *place-pose*)))
-    
+                       orientation *place-pose*))))
+  
   (multiple-value-bind (?perceived-object)
       (perceive-object (first ?scan-pose) ?object-type)
+    (let* ((?object-name (desig:desig-prop-value ?perceived-object :name)))
       
-    (pick-place-alight-object ?object-name ?sides-base ?arm
-                              ?object-type ?non-graspable ?perceived-object))
+      (pick-place-alight-object ?object-name *base-sides* ?arm
+                              ?object-type ?non-graspable ?perceived-object)
 
   
-  (if
-   (exe:perform (desig:an action
-                         (:type :scanning)
-                         (:arm ?arm)
-                         (:non-scanable ?non-scanable)
-                         (:non-graspable ?non-graspable)
-                         (:object-name ?object-name)
-                         (:object-type ?object-type)
-                         (:object-size ?object-size)
-                         (:goal-side ?goal-side)
-                         (:sides-base ?sides-base)))
-   (sucessful-scan ?object-type ?object-name ?sides-base
+  (if (exe:perform (desig:an action
+                             (:type :scanning)
+                             (:arm ?arm)
+                             (:non-scanable ?non-scanable)
+                             (:non-graspable ?non-graspable)
+                             (:object-name ?object-name)
+                             (:object-type ?object-type)
+                             (:object-size ?object-size)
+                             (:goal-side ?goal-side)
+                             (:sides-base *base-sides*)))
+   
+   (sucessful-scan ?object-type ?object-name *base-sides*
                    ?arm ?non-graspable (first ?scan-pose))
    
-   (unsucessful-scan ?object-type ?object-name ?sides-base
+   (unsucessful-scan ?object-type ?object-name *base-sides*
                      ?arm ?non-graspable (first ?scan-pose)))
   
-  )
+
+      )))
 
 
 
@@ -377,3 +373,6 @@
   (if (member side list :test 'equal)
       nil
       side))
+
+(defun defaul-distance ()
+  0.2)

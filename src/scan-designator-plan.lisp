@@ -62,8 +62,7 @@
                     &allow-other-keys)
   
   (declare (type keyword
-                 ?object-type
-                 ?goal-side)
+                 ?object-type)
            
            (type list
                  ?sides-base

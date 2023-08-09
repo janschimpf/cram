@@ -10,7 +10,7 @@
                       ((:sides-base ?sides-base))
                     &allow-other-keys)
   (declare (type list ?plan ?object-size ?sides-base ?arm)
-           (type keyword ?object-type ?side-goal)
+           (type keyword ?object-type)
            (type symbol ?object-name))
   
   (loop for move in (remove nil ?plan)
