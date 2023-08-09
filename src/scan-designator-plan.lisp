@@ -93,8 +93,6 @@
 
            (let* ((?check-side (next-side-to-check ?located-sides ?sides-to-check)))
 
-             (print-before-change-side)
-             (print ?check-side)
            (if (not (equal nil ?check-side))
              (exe:perform
               (desig:an action
@@ -109,9 +107,11 @@
                       (:sides-transformed ?sides-transformed)
                       (:object-size ?object-size)
                       (:object-vector ?object-vector))))
+             
              (setf ?sides-transformed (transforms-map-t-side ?object-name ?sides-base))))
            (cpl:retry))
        (cpl:fail 'common-fail:high-level-failure)))
+      
       (if (equal nil ?sides-to-check)
           nil
           (if (not (scan ?object-name ?object-type ?goal-side ?sides-transformed))

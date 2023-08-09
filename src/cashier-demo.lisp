@@ -65,11 +65,11 @@
 (defparameter *place-pose*
    (list -2 1.2 0.75))
 
-(defparameter spawn-point-1
+(defparameter spawn-pose-1
   (list -2 2 0.85))
 
-(defparameter spawn-point-2
-  (list -2 2.15 0.85))
+(defparameter spawn-pose-2
+  (list  -2 2.15 0.85))
 
 (defparameter success-point-1
   (list -2 0.8 0.75))
@@ -89,19 +89,52 @@
 
 
 (defun spawn-vector-list (3d-pose1 3d-pose2 number-of-places)
-  (let* ((2d-vector (list (- (car 3d-pose2)
-                             (car 3d-pose1))
+  (let* ((2d-vector (list (- (first 3d-pose2)
+                             (first 3d-pose1))
                           
-                          (- (cadr 3d-pose2)
-                             (cadr 3d-pose1)))))
+                          (- (second 3d-pose2)
+                             (second 3d-pose1)))))
     
          (loop for a from 1 to number-of-places
-               collect (list (+ (car 3d-pose1)
-                                (* (car 2d-vector) (- a 1)))
-                             (+ (cadr 3d-pose1)
-                                (* (cadr 2d-vector) (- a 1)))
-                             (caddr 3d-pose1)
+               collect (list (+ (first 3d-pose1)
+                                (* (first 2d-vector) (- a 1)))
+                             (+ (second 3d-pose1)
+                                (* (second 2d-vector) (- a 1)))
+                             (third 3d-pose1)
                              ))))
+
+
+(defun area->pose-stamped-list (pose-1 pose-2 number-of-places)
+  (let* ((origin-pose-1 (cl-tf2:origin pose-1))
+         (origin-pose-2 (cl-tf2:origin pose-2))
+         (2d-vector (list (- (cl-tf2:x origin-pose-2)
+                             (cl-tf2:x origin-pose-1)
+                          
+                          (- (cl-tf2:y origin-pose-2)
+                             (cl-tf2:y origin-pose-1))))))
+    (print "creating list")
+    (print origin-pose-1)
+    (print (cl-tf2:x origin-pose-1))
+    (print (cl-tf2:make-3d-vector
+                         (+ (cl-tf2:x origin-pose-1)
+                            (* (first 2d-vector) 0))
+                         (+ (cl-tf2:y origin-pose-1)
+                            (* (second 2d-vector) 0))
+                         (cl-tf2:z origin-pose-1))
+           (cl-tf2:orientation pose-1))
+    
+         (loop for a from 1 to number-of-places
+               collect (cl-transforms-stamped:make-pose-stamped
+                        "map" 0
+                        (cl-tf2:make-3d-vector
+                         (+ (cl-tf2:x origin-pose-1)
+                            (* (first 2d-vector) (- a 1)))
+                         (+ (cl-tf2:y origin-pose-1)
+                            (* (second 2d-vector) (- a 1)))
+                         (cl-tf2:z origin-pose-1))
+                        (cl-tf2:orientation pose-1)
+                             ))))
+
 
 (defun navigation-to-goal-for-detect (location)
   (let* ((?location-pose (cl-transforms-stamped:pose->pose-stamped "map" 0 location))
@@ -114,16 +147,35 @@
 (defun move (?navigation-goal)
       (exe:perform (desig:an action
                              (type parking-arms)))
+  
       (exe:perform (desig:a motion
                             (type going)
                             (pose ?navigation-goal)))
       (coe:on-event (make-instance 'cpoe:robot-state-changed)))
   
-(defun grasp-object-with-handling (?arm ?grasp ?perceived-object)
+(defun grasp-object-with-handling (?arm ?grasp-list ?perceived-object)
+
+  (cpl:with-retry-counters ((grasp-retry (length ?grasp-list)))
+    (cpl:with-failure-handling
+        ((common-fail:gripper-closed-completely (e) 
+           (roslisp:ros-warn (cashier-demo) "failure happened: ~a~% changing grasp" e)
+           (cpl:do-retry grasp-retry
+             (setf ?grasp-list (cdr ?grasp-list))
+             (cpl:retry)))
+         
+         (desig:designator-error (e)
+           (roslisp:ros-warn (cashier-demo) "designator-reference-failure ~a~%" e)
+           (cpl:do-retry grasp-retry
+             (setf ?grasp-list (cdr ?grasp-list))
+             
+           (cpl:retry))
+           (cpl:fail 'common-fail:high-level-failure)))
+      (setf *current-grasp* (car ?grasp-list))
+      
   (if (equal ?arm '(:left))
-      (grasp-object ?arm ?perceived-object :?left-grasp ?grasp)
-      (grasp-object ?arm ?perceived-object :?right-grasp ?grasp)
-))
+      (grasp-object ?arm ?perceived-object :?left-grasp *current-grasp*)
+      (grasp-object ?arm ?perceived-object :?right-grasp *current-grasp*)
+))))
 
 (defun grasp-object (?arm
                      ?perceived-object
@@ -147,8 +199,9 @@
 (defun place-object-with-handling (?target-pose ?arm ?grasp)
   (if (equal ?arm '(:left))
       (place-object ?target-pose ?arm :?left-grasp ?grasp)
-      (place-object ?target-pose ?arm :?right-grasp ?grasp)
-))
+      (place-object ?target-pose ?arm :?right-grasp ?grasp))
+  (setf *current-grasp* nil)
+  )
 
 (defun place-object (?target-pose
                      ?arm
@@ -174,13 +227,14 @@
 (defun pr2-cashier-demo ()
   ;;(table-reenforcement-scan)
   ;;(table-reenforcement-spawn)
-  (let* ((spawn-poses (spawn-vector-list spawn-point-1 spawn-point-2
+  (let* ((spawn-poses (spawn-vector-list spawn-pose-1
+                                         spawn-pose-2
                                          5)))
-                            
   (loop for object in spawn-objects-list
         do
-           (spawn-object-on-counter-general object (first spawn-poses))
-           (setf spawn-poses (cdr spawn-poses)))
+           (spawn-object-on-counter-general object (car spawn-poses))
+                                                            
+           (setf spawn-poses (cdr spawn-poses))))
     
     (setf *success-poses-list* (spawn-vector-list success-point-1 success-point-2
                                                   5))
@@ -190,13 +244,18 @@
   (urdf-proj:with-simulated-robot
   (loop for object in spawn-objects-list
         do
-  (let ((?object-name (first object))
+  (let* ((?object-name (first object))
         (?object-type (second object))
         (?object-size (fourth object))
         (?goal-side (car (last object)))
-        (?arms (list :right))
+        (?arms (list :left))
         (?non-scanable (fifth object))
-        (?non-graspable (sixth object)))
+        (?non-graspable (sixth object))
+        (?search-area (list *spawn-area*))
+        (?scan-pose (list *place-position*))
+        (?success-pose (first *unsuccessful-poses-list*))
+        (?failed-pose  (first *unsuccessful-poses-list*))
+        (?object (desig:a object (type ?object-type))))
 
     (exe:perform (desig:an action
                            (type cashier)
@@ -207,7 +266,13 @@
                            (object-name ?object-name)
                            (object-type ?object-type)
                            (object-size ?object-size)
-                           (goal-side ?goal-side)))))))
+                           (goal-side ?goal-side)
+                           (search-area ?search-area)
+                           (scan-pose ?scan-pose)
+                           (success-pose ?success-pose)
+                           (failed-pose ?failed-pose)
+                           (object ?object)))
+                 )))
   ;;(btr-utils:kill-object ?object-name))))
   (print *sides-log*)
   (setf *sides-log* nil))

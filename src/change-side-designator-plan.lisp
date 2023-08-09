@@ -196,26 +196,12 @@
   
   (multiple-value-bind (?perceived-object)
       (perceive-object *place-position* ?object-typ)
- 
-  (cpl:with-retry-counters ((grasp-retry 3))
-    (cpl:with-failure-handling
-        ((common-fail:gripper-closed-completely (e) 
-           (roslisp:ros-warn (cashier-demo) "failure happened: ~a~% changing grasp" e)
-           (cpl:do-retry grasp-retry
-             (setf grasp (cdr grasp))
-             (cpl:retry)))
-         
-         (desig:designator-error (e)
-           (roslisp:ros-warn (cashier-demo) "designator-reference-failure ~a~%" e)
-           (cpl:do-retry grasp-retry
-           (setf grasp (cdr grasp))
-           (cpl:retry))
-           (cpl:fail 'high-level-grasp-failure)))
+
                              
       (grasp-object-with-handling
        arm
-       (first grasp)
-       ?perceived-object)))
+       grasp
+       ?perceived-object)
   
     (move *place-nav-pose*)
 
@@ -230,7 +216,7 @@
       (place-object-with-handling
        target-pose
        arm
-       (first grasp)
+       *current-grasp*
        ))))
 )
 

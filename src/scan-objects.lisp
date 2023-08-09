@@ -1,11 +1,10 @@
 (in-package :cashier)
 
 (defparameter *sides-log* '(nil))
-
-(defun get-scan-area ()
+(defparameter *scan-area*
   (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
-   (cl-transforms:make-3d-vector -2 1.2 0.67)
+   (cl-transforms:make-3d-vector -2 1.2 0.7)
    (cl-transforms:make-quaternion 0 0 0 1)))
 
 ;;Sets the sides that are needed for scanning and object handling
@@ -30,13 +29,13 @@
 
 (defun scan (object-name type side side-list)
   (let* ((scan-area-vector (first (cram-tf:pose->list
-                                  (cram-tf::pose-stamped->pose (get-scan-area)))))
+                                   (cram-tf::pose-stamped->pose *scan-area*))))
         
         (object-vector (cram-tf:3d-vector->list
                         (cl-tf2:origin (btr:object-pose object-name))))
          (scanned nil))
     
-    (spawn-highlight-box (get-scan-area) (list 0.03 0.03 0.03))
+    (spawn-highlight-box *scan-area* (list 0.03 0.03 0.03))
     
     (if (and (side-check side object-vector side-list object-name)
              (x-y-z-pose-check scan-area-vector object-vector))
@@ -91,7 +90,7 @@
 (defun distances-for-side-list (side-list scan-vector)
   (let ((map-side-list (change-side-list-to-map side-list)))   
    (mapcar (lambda (x) (list (first x)
-                             (distance-between-vectors scan-vector
+                             (distance-between-poses scan-vector
                                                        (pose-to-vector-list (second x)))))
            map-side-list)))
 
@@ -100,12 +99,10 @@
 
 ;;gets two poses that are in relation to the map and then returns the
 ;;distance between these two poses
-(defun distance-between-vectors (scan-vector object-vector)
-  (let ((3d-vector-1 scan-vector)
-        (3d-vector-2 object-vector))
-    (sqrt (+ (expt (- (first 3d-vector-2) (first 3d-vector-1)) 2)
-             (expt (- (second 3d-vector-2) (second 3d-vector-1)) 2)
-             (expt (- (third 3d-vector-2) (third 3d-vector-1)) 2)))))
+(defun distance-between-poses (pose-1 pose-2)
+  (sqrt (+ (expt (- (first pose-2) (first pose-1)) 2)
+           (expt (- (second pose-2) (second pose-1)) 2)
+           (expt (- (third pose-2) (third pose-1)) 2))))
   
 (defun shortest-distance (side-list)
   (sort side-list #'< :key 'second))

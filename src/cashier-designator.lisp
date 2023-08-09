@@ -144,11 +144,15 @@
          (test-side-changes (side-changes test-located-list (list nil))))
     (path-plan-next-side test-side-changes (list nil) (list nil) goal-side)))
 
+(defun create-poses (?area)
+  ?area)
 
 ;; ================ Designator def =================================
 (prolog:def-fact-group cashier-plans (desig:action-grounding) 
   (prolog:<- (desig:action-grounding ?action-designator
                                      (cashier-object ?resolved-action-designator))
+
+    
     (desig-prop ?action-designator (:type :cashier))
     (desig-prop ?action-designator (:object-name ?object-name))
     (desig-prop ?action-designator (:object-type ?object-type))
@@ -156,8 +160,21 @@
     (desig-prop ?action-designator (:non-scanable ?non-scanable))
     (desig-prop ?action-designator (:non-graspable ?non-graspable))
     (desig-prop ?action-designator (:goal-side ?goal-side))
-    (desig-prop ?action-designator (:object-list ?object-list))
     (desig-prop ?action-designator (:object-size ?object-size))
+    (desig-prop ?action-designator (:object-list ?object-list))
+
+    (desig-prop ?action-designator (:object ?object-designator))
+    (spec:property ?action-designator (:object ?object-designator))
+    (desig:current-designator ?object-designator ?current-desig)
+    
+    (desig-prop ?action-designator (:search-area ?search-area))
+    (lisp-fun create-poses ?search-area ?search-poses)
+
+    (desig-prop ?action-designator (:scan-pose ?scan-pose))
+    
+    (desig-prop ?action-designator (:success-pose ?success-pose))
+
+    (desig-prop ?action-designator (:failed-pose ?failed-pose))
     
     (lisp-fun set-sides-helper ?object-name ?object-size  ?sides-base)
     (lisp-fun transforms-map-t-side ?object-name ?sides-base ?sides-transformed)
@@ -171,11 +188,17 @@
                                (:goal-side ?goal-side)
                                (:sides-base ?sides-base)
                                (:object-size ?object-size)
-                               (:sides-transformed ?sides-transformed))
+                               (:sides-transformed ?sides-transformed)
+                               (:search-poses ?search-poses)
+                               (:scan-pose ?scan-pose)
+                               (:success-pose ?success-pose) 
+                               (:failed-pose ?failed-pose)
+                               )
                       ?resolved-action-designator))
   
   (prolog:<- (desig:action-grounding ?action-designator
                                      (scan-object ?resolved-action-designator))
+    
     (desig-prop ?action-designator (:type :scanning))
     (desig-prop ?action-designator (:object-name ?name))
     (desig-prop ?action-designator (:object-type ?object-type))
@@ -223,6 +246,36 @@
     (lisp-fun path-plan-next-side ?side-changes ?non-scanable ?non-graspable ?side-goal ?plan)
 
     (desig:designator :action ((:type :changing-side)
+                               (:object-name ?object-name)
+                               (:object-type ?object-type)
+                               (:object-size ?object-size)
+                               (:arm ?arm)
+                               (:sides-base ?sides-base)
+                               (:plan ?plan)
+                               (:side-goal ?side-goal))
+                      
+                      ?resolved-action-designator))
+  
+   (prolog:<- (desig:action-grounding ?action-designator
+                                      (align-object ?resolved-action-designator))
+     
+     (desig-prop ?action-designator (:type :align-side))
+     (desig-prop ?action-designator (:object ?object-designator))
+     (spec:property ?action-designator (:object ?object-designator))
+     (desig:current-designator ?object-designator ?current-desig)
+     (spec:property ?current-desig (:type ?object-type))
+     (spec:property ?current-desig (:name ?object-name))
+     
+     (desig-prop ?action-designator (:arm ?arm))
+     (desig-prop ?action-designator (:non-scanable ?non-scanable))     
+     (desig-prop ?action-designator (:non-graspable ?non-graspable))
+     (desig-prop ?action-designator (:sides-base ?sides-base))
+     (desig-prop ?action-designator (:center-point ?center))
+     (desig-prop ?action-designator (:align-point ?align))
+     (desig-prop ?action-designator (:front-point ?front))
+                 
+
+    (desig:designator :action ((:type :align-side)
                                (:object-name ?object-name)
                                (:object-type ?object-type)
                                (:object-size ?object-size)

@@ -1,4 +1,5 @@
 (in-package :cashier)
+(defparameter *current-grasp* nil)
 
 (defun check-object-size (size)
   (let* ((x (car size))
@@ -27,6 +28,10 @@
                          ((:sides-base ?sides-base))
                          ((:sides-transformed ?sides-transformed))
                          ((:object-size ?object-size))
+                         ((:search-poses ?search-poses))
+                         ((:scan-pose ?scan-pose))
+                         ((:success-poses ?success-pose))
+                         ((:failed-poses ?failed-pose))
                        &allow-other-keys)
 
   (declare (type keyword
@@ -39,20 +44,29 @@
                  ?object-size
                  ?arm
                  ?non-scanable
-                 ?non-graspable)
+                 ?non-graspable
+                 ?search-poses
+                 ?scan-pose
+                 ?success-pose
+                 ?failed-pose
+                 )
            
            (type symbol ?object-name))
   
-  (let* ((?nav-pose *spawn-area*))
+  (print ?search-poses)
+  (print ?scan-pose)
+  (print ?success-pose)
+  (print ?failed-pose)
+  
+  (let* ((?nav-pose (first ?search-poses)))
     (move (desig:reference (desig:a location (locate ?nav-pose) (arm (first ?arm))))))
   
   (print "moved to first look nav pose")
   
   (multiple-value-bind (?perceived-object)
-      (perceive-object *spawn-area* ?object-typ)
+      (perceive-object (first ?search-poses) ?object-typ)
 
-    (print "found the object")
-    (print ?perceived-object)
+
   (if (not (car ?non-graspable))
       (setf ?non-graspable (check-object-size ?object-size)))
 
@@ -61,16 +75,22 @@
   
   (print "check for non graspable sides")
 
-  (let* ((grasp (which-sides-can-be-grasped
-                 (locate-sides ?sides-transformed (origin->list ?object-name))
+    (let* ((object-pose (man-int:get-object-pose-in-map ?perceived-object))
+           (grasp (which-sides-can-be-grasped
+                   (locate-sides ?sides-transformed
+                                 (cram-tf:3d-vector->list (cl-tf2:origin object-pose)))
                  ?non-graspable))
-         (orientation (cl-tf2:orientation (btr:object-pose ?object-name))))
-
-    (transport-object *place-position* *spawn-area*
-                      grasp ?arm ?object-typ
-                      orientation *place-pose*)
-  
-   (pick-place-alight-object ?object-name ?sides-base ?arm ?object-typ ?non-graspable)))
+           (orientation (cl-tf2:orientation object-pose)))
+    
+      (pick-place-object (car ?scan-pose) (first ?search-poses)
+                       grasp ?arm ?object-typ
+                       orientation *place-pose*)))
+    
+  (multiple-value-bind (?perceived-object)
+      (perceive-object (first ?scan-pose) ?object-typ)
+      
+    (pick-place-alight-object ?object-name ?sides-base ?arm
+                              ?object-typ ?non-graspable ?perceived-object))
 
   
   (if
@@ -84,58 +104,70 @@
                          (:object-size ?object-size)
                          (:goal-side ?goal-side)
                          (:sides-base ?sides-base)))
-   (sucessful-scan ?object-typ ?object-name ?sides-base ?arm ?non-graspable)
-   (unsucessful-scan ?object-typ ?object-name ?sides-base ?arm ?non-graspable)) 
+   (sucessful-scan ?object-typ ?object-name ?sides-base
+                   ?arm ?non-graspable (first ?scan-pose))
+   
+   (unsucessful-scan ?object-typ ?object-name ?sides-base
+                     ?arm ?non-graspable (first ?scan-pose))) 
   )
 
 
 
 ;;=============  placing object after scan ================
 
-(defun sucessful-scan (?object-type ?object-name ?sides-base ?arm ?non-graspable-sides)
+(defun sucessful-scan (?object-typ ?object-name ?sides-base ?arm
+                       ?non-graspable-sides ?look)
   (print "object was succesfully scanned")
 
-  (let* ((grasp (which-sides-can-be-grasped
-                 (locate-sides
-                  (transforms-map-t-side ?object-name ?sides-base)
-                  (cram-tf:3d-vector->list
-                   (cl-tf2:origin (btr:object-pose ?object-name))))
-                 ?non-graspable-sides))
-         
-         (orientation (cl-tf2:orientation (btr:object-pose ?object-name))))
+  (multiple-value-bind (?perceived-object)
+      (perceive-object *place-position* ?object-typ)
     
-    (transport-object
+    (let* ((object-pose-in-map (man-int:get-object-pose-in-map ?perceived-object))
+
+           (grasp (which-sides-can-be-grasped
+                   (locate-sides
+                    (transforms-map-t-side ?object-name ?sides-base)
+                    (cram-tf:3d-vector->list
+                     (cl-tf2:origin object-pose-in-map)))
+                   ?non-graspable-sides))
+         
+         (orientation (cl-tf2:orientation (man-int:get-object-pose-in-map ?perceived-object))))
+    
+    (pick-place-object
      *after-scan-nav-pose*
-     *place-position*
+     ?look
      grasp
      ?arm
-     ?object-type
+     ?object-typ
      orientation
      (car *success-poses-list*))
-  (setf *success-poses-list* (cdr *success-poses-list*))))
+  (setf *success-poses-list* (cdr *success-poses-list*)))))
 
 
-(defun unsucessful-scan (?object-type ?object-name ?sides-base ?arm ?non-graspable-sides)
+(defun unsucessful-scan (?object-typ ?object-name ?sides-base ?arm ?non-graspable-sides ?look)
   (print "object could not be scanned")
+  (multiple-value-bind (?perceived-object)
+      (perceive-object *place-position* ?object-typ)
 
-  (let* ((grasp (which-sides-can-be-grasped
+  (let* ((object-pose-in-map (man-int:get-object-pose-in-map ?perceived-object))
+         (grasp (which-sides-can-be-grasped
                  (locate-sides
                   (transforms-map-t-side ?object-name ?sides-base)
                   (cram-tf:3d-vector->list
-                   (cl-tf2:origin (btr:object-pose ?object-name))))
+                   (cl-tf2:origin object-pose-in-map)))
                  ?non-graspable-sides))
-         (orientation (cl-tf2:orientation (btr:object-pose ?object-name))))
+         (orientation (cl-tf2:orientation object-pose-in-map)))
 
-    (transport-object
+    (pick-place-object
      *after-unsuccessful-scan-nav-pose*
-     *place-position*
+     ?look
      grasp
      ?arm
-     ?object-type
+     ?object-typ
      orientation
      (car *unsuccessful-poses-list*))
     
-    (setf *unsuccessful-poses-list* (cdr *unsuccessful-poses-list*))))
+    (setf *unsuccessful-poses-list* (cdr *unsuccessful-poses-list*)))))
 
 
 (defun place-after-scan (pose orientation q1 q2)
@@ -152,69 +184,64 @@
    (cram-tf:list->3d-vector pose)
    new-orientation)))
 
-(defun transport-object (?move-pose ?look grasp-list
+(defun pick-place-object (?move-pose ?look grasp-list
                          ?arm ?object-typ object-orientation
                          place-pose)
   
   (multiple-value-bind (?perceived-object)
       (perceive-object ?look ?object-typ)
     
-  (cpl:with-retry-counters ((grasp-retry (length grasp-list)))
-    (cpl:with-failure-handling
-        ((common-fail:gripper-closed-completely (e) 
-           (roslisp:ros-warn (cashier-demo) "failure happened: ~a~% changing grasp" e)
-           (cpl:do-retry grasp-retry
-             (setf grasp-list (cdr grasp-list))
-             (cpl:retry)))
-         
-         (desig:designator-error (e)
-           (roslisp:ros-warn (cashier-demo) "designator-reference-failure ~a~%" e)
-           (cpl:do-retry grasp-retry
-             (setf grasp-list (cdr grasp-list))
-             
-           (cpl:retry))
-           (cpl:fail 'common-fail:high-level-failure)))
-                             
       (grasp-object-with-handling
        ?arm
-       (first grasp-list)
-       ?perceived-object))))
+       grasp-list
+       ?perceived-object)
     
 
   (let* ((orientation-of-old-pose (cram-tf:orientation (cram-tf:robot-current-pose)))
          (new-position (desig:reference (desig:a location (locate ?move-pose) (arm (first ?arm)))))
          (orientation-of-new-pose (cram-tf:orientation new-position)))
+    
     (move new-position)
   
     (place-object-with-handling
-     (place-after-scan place-pose object-orientation orientation-of-old-pose orientation-of-new-pose)
+     (place-after-scan place-pose
+                       object-orientation
+                       orientation-of-old-pose
+                       orientation-of-new-pose)
      ?arm
-     (first grasp-list))
-))
+     *current-grasp*)
+)))
 
 ;; ========== algin object rotation with robot ===================
-(defun points-to-2dvector (point-1 point-2)
- (list (- (car point-2) (car point-1)) (- (cadr point-2) (cadr point-1))))
+(defun points-to-3d-vector (point-1 point-2)
+  (cl-tf2:make-3d-vector
+   (- (first point-2) (first point-1))
+   (- (second point-2) (second point-1))
+   (- (third point-2) (third point-1))))
        
 
-(defun 2d-vectors-to-angle (vector-1 vector-2)
-  (acos (/ (dot-product-2d vector-1 vector-2) (* (2d-vector-magnitude vector-1) (2d-vector-magnitude vector-2))))
+(defun 3d-vectors-to-angle (vector-1 vector-2)
+  (print (cl-tf2:dot-product vector-1 vector-2))
+  (acos (/ (cl-tf2:dot-product vector-1 vector-2)
+           (* (3d-vector-magnitude vector-1)
+              (3d-vector-magnitude vector-2))))
 )
 
-(defun 2d-vector-magnitude (vector)
+(defun 3d-vector-magnitude (vector)
   "Returns the magnitude of the vector"
-  (sqrt (+ (expt (car vector) 2) (expt (cadr vector) 2))))
-
-(defun dot-product-2d (v-1 v-2)
-  "Returns the dot-product of two 2d vectors"
-  (+ (* (car v-1) (car v-2))
-     (* (cadr v-1) (cadr v-2))))
+  (sqrt (+ (expt (cl-tf2:x vector) 2)
+           (expt (cl-tf2:y vector) 2)
+           (expt (cl-tf2:z vector) 2))))
 
 (defun points-to-angle (p1 p2 p3)
-  "creates 2 vectors with p1 as the origin and going towards p2 and p3"
-  (2d-vectors-to-angle
-   (points-to-2dvector p1 p2)
-   (points-to-2dvector p1 p3)))
+  "creates 2 vectors with p1 as the origin and going towards p2 and p3
+   then calculates the angle betwen the two vectors"
+  (let*((point-1 (list (first p1) (second p1) 0))
+        (point-2 (list (first p2) (second p2) 0))
+        (point-3 (list (first p3) (second p3) 0)))
+  (3d-vectors-to-angle
+   (points-to-3d-vector point-1 point-2)
+   (points-to-3d-vector point-1 point-3))))
 
 
 (defun get-correct-side (transformed-sides-base side)
@@ -224,59 +251,59 @@
                  (return (second x)))))
 
 (defun angle-direction (robot-base right-side left-side angle)
-  (let* ((right-side-mangnitude (2d-vector-magnitude
-                                 (points-to-2dvector robot-base right-side)))
-         (left-side-magnitude (2d-vector-magnitude
-                               (points-to-2dvector robot-base left-side))))
+  (print "angle-direction")
+  (let* ((right-side-mangnitude (3d-vector-magnitude
+                                 (points-to-3d-vector robot-base right-side)))
+         (left-side-magnitude (3d-vector-magnitude
+                               (points-to-3d-vector robot-base left-side))))
     (if (>= right-side-mangnitude left-side-magnitude)
         angle
         (- 0 angle))
     ))
 
     
-(defun align-object (object-name sides-base)
-  (let* ((object-location (cram-tf:3d-vector->list (cl-tf2:origin (btr:object-pose object-name))))
-         
-         (robot-base-location (cram-tf:3d-vector->list (cl-tf2:origin *place-nav-pose*)))
+(defun align-object (object-name sides-base object-location)
+  (let* ((align-point (cram-tf:3d-vector->list
+                       (cl-tf2:origin (cram-tf:robot-current-pose))))
+                       
          
          (located (locate-sides
            (transforms-map-t-side object-name sides-base)
-           (cram-tf:3d-vector->list
-            (cl-tf2:origin (btr:object-pose object-name)))))
+           object-location))
          
-         (front-side (car (reverse located)))
-         (right-side (cadr located))
-         (left-side (opposite-short (cadr located)))
+         (front-side (third located))
+         (right-side (second located))
+         (left-side (opposite-short right-side))
+         (transformed-map-t-side (transforms-map-t-side
+                                  object-name sides-base))
+          
          (front-side-location (cram-tf:3d-vector->list (cl-tf2:origin
                                                         (get-correct-side
-                                                         (transforms-map-t-side
-                                                          object-name sides-base)
+                                                         transformed-map-t-side
                                                          front-side))))
          
          (right-side-location (cram-tf:3d-vector->list (cl-tf2:origin
                                                         (get-correct-side
-                                                         (transforms-map-t-side
-                                                          object-name sides-base)
+                                                         transformed-map-t-side
                                                          right-side))))
          
          (left-side-location (cram-tf:3d-vector->list (cl-tf2:origin
                                                         (get-correct-side
-                                                         (transforms-map-t-side
-                                                          object-name sides-base)
+                                                         transformed-map-t-side
                                                          left-side))))
          
-         (angle (points-to-angle object-location robot-base-location front-side-location))
+         (angle (points-to-angle object-location align-point front-side-location))
 
          
-         (correct-angle-direction (angle-direction robot-base-location
+         (correct-angle-direction (angle-direction align-point
                                                    right-side-location
                                                    left-side-location
                                                    angle))
+         
          (rotation (list 0 correct-angle-direction 0))
+         
          (axis-found (finding-axis located rotation)))
-    (print "after axis")
-    (print axis-found)
-    (print located)
+    
     (cl-tf2:q*
             (cl-tf2:orientation (btr:object-pose object-name))
             (cl-tf2:euler->quaternion
@@ -284,50 +311,34 @@
              :ay (second axis-found)
              :az (third axis-found)))))
 
-(defun pick-place-alight-object (object-name sides-base arm ?object-typ non-graspable)
-  
-  (multiple-value-bind (?perceived-object)
-      (perceive-object *place-position* ?object-typ)
-    
-  (let* ((transformed (transforms-map-t-side object-name sides-base))
-         (located (locate-sides
-           transformed
-           (cram-tf:3d-vector->list
-            (cl-tf2:origin (btr:object-pose object-name)))))
+(defun pick-place-alight-object (object-name sides-base arm ?object-typ non-graspable
+                                 ?perceived-object)
+      
+  (let* ((object-pose-in-map (man-int:get-object-pose-in-map ?perceived-object))
+         (object-vector-list (cram-tf:3d-vector->list
+                              (cl-tf2:origin object-pose-in-map)))
+         (transformed (transforms-map-t-side object-name sides-base))
+         (located (locate-sides transformed object-vector-list))
          (grasp (which-sides-can-be-grasped located non-graspable))
-         (align (align-object object-name sides-base)))
-    
-    (cpl:with-retry-counters ((grasp-retry 3))
-      (cpl:with-failure-handling
-         ((common-fail:gripper-closed-completely (e) 
-           (roslisp:ros-warn (cashier-demo) "failure happened: ~a~% changing grasp" e)
-           (cpl:do-retry grasp-retry
-             (setf grasp (cdr grasp))
-             (cpl:retry)))
-        
-        (desig:designator-error (e)
-           (roslisp:ros-warn (cashier-demo) "designator-reference-failure ~a~%" e)
-           (cpl:do-retry grasp-retry
-           (setf grasp (cdr grasp))
-           (cpl:retry))
-          (cpl:fail 'high-level-grasp-failure)))
+         (align (align-object object-name sides-base object-vector-list)))
 
         (spawn-side-visualisation transformed "pre-alignment")      
     
         (grasp-object-with-handling
                 arm
-                (first grasp)
-                ?perceived-object)))
+                grasp
+                ?perceived-object)
   
     (place-object-with-handling
      (cl-transforms-stamped:make-pose-stamped
       "map" 0.0
-      (cram-tf:list->3d-vector *place-pose*)
+      (cl-tf2:origin *place-position*)
       align)
       arm
-      (first grasp))
+      *current-grasp*)
+      
     (spawn-side-visualisation (transforms-map-t-side object-name sides-base) "after-alignment"))
-  ))
+  )
 ;;======================== Check if object can be grasped and which sides can be grasped ========================
 
 ;; check if the object can be grasped in the current orientation

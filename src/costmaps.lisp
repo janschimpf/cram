@@ -1,5 +1,8 @@
 (in-package :cashier)
 
+(defparameter *robot-arm-offset* 0.1)
+(defparameter *robot-pose-offset* 0.7)
+
 (defparameter *test*
   (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
@@ -23,7 +26,6 @@
 (defmethod location-costmap:costmap-generator-name->score ((name (eql 'locate-cost-function))) 1)
 
 (prolog:def-fact-group cashier-costmap (location-costmap:desig-costmap)
-  
   (prolog:<- (location-costmap:desig-costmap ?designator ?costmap)
     (desig:desig-prop ?designator (:locate ?pose))
     (desig:desig-prop ?designator (:arm ?arm))
@@ -32,14 +34,12 @@
     (prolog:lisp-fun cl-transforms:y ?pose-origin ?ref-y)
     (prolog:lisp-fun cl-transforms:orientation ?pose ?orientation)
     (location-costmap:costmap ?costmap)
-    (location-costmap:costmap-add-function
-     locate-cost-function
-     (make-locate-cost-function ?pose ?arm) ?costmap)
+    (location-costmap:costmap-add-function locate-cost-function
+     (make-locate-cost-function ?ref-x ?ref-y ?orientation ?arm) ?costmap)
     (costmap:costmap-add-orientation-generator
-     (rotate-robot ?ref-x ?ref-y ?orientation)
-     ?costmap)
-    )
-  
+     (rotate-robot ?ref-x ?ref-y ?orientation) ?costmap))
+)
+
   ;; (prolog:<- (location-costmap:desig-costmap ?designator ?costmap)
   ;;   (desig:desig-prop ?designator (:spawn ?pose))
   ;;   (prolog:lisp-fun cl-transforms:origin ?pose ?pose-origin)
@@ -57,28 +57,22 @@
   ;;   (costmap:costmap-add-cached-height-generator
   ;;    (costmap:make-constant-height-function ?ref-z)
   ;;    ?costmap))
-  )
+  
   
              
 
-(defun make-locate-cost-function (pose arm)
-  (let* ((origin-pose (cl-transforms:origin pose))
-         (orientation (cl-transforms:orientation pose))
-         (adjusted-to-arm (if (equal arm :left)
-                              -0.07
-                              0.07))
-         
-         (ref-x (cl-transforms:x origin-pose))
-         (ref-y (cl-transforms:y origin-pose))
+(defun make-locate-cost-function (ref-x ref-y orientation arm)
+  (let* ((adjusted-to-arm (if (equal arm :left)
+                              (- *robot-arm-offset*) 
+                              *robot-arm-offset*))
 
-         (second-vector (cl-transforms:rotate
+         (offset-vector (cl-transforms:rotate
                          orientation
-         (cl-transforms:make-3d-vector 0.7 adjusted-to-arm 0))
-         )
+                         (cl-transforms:make-3d-vector *robot-pose-offset* adjusted-to-arm 0)))
          
          (added-vectors (cl-transforms:make-3d-vector
-                         (+ ref-x (cl-transforms:x second-vector))
-                         (+ ref-y (cl-transforms:y second-vector))
+                         (+ ref-x (cl-transforms:x offset-vector))
+                         (+ ref-y (cl-transforms:y offset-vector))
                          0))
          
          (supp-tf (cl-transforms:make-transform
@@ -92,8 +86,8 @@
       (let* ((point (cl-transforms:transform-point world->supp-tf
                      (cl-transforms:make-3d-vector x y 0))))
         
-        (if (and (< (cl-transforms:x point) 0.1)
-                 (> (cl-transforms:x point) -0.1)
+        (if (and (< (cl-transforms:x point) 0.05)
+                 (> (cl-transforms:x point) -0.05)
                  (< (cl-transforms:y point) 0.05)
                  (> (cl-transforms:y point) -0.05))
                      1
@@ -142,24 +136,24 @@
     (lambda (x y previous-orientations)
       (let* ((second-vector (cl-transforms:rotate
                              orientation
-                             (cl-transforms:make-3d-vector 0.6 0 0)))
+                             (cl-transforms:make-3d-vector *robot-pose-offset* 0 0)))
              
-             (added-vectors (cl-transforms:make-3d-vector
-                             (+ ref-x (cl-transforms:x second-vector))
-                             (+ ref-y (cl-transforms:y second-vector))
-                             0))
+             ;; (added-vectors (cl-transforms:make-3d-vector
+             ;;                 (+ ref-x (cl-transforms:x second-vector))
+             ;;                 (+ ref-y (cl-transforms:y second-vector))
+             ;;                 0))
              
-             (supp-tf (cl-transforms:make-transform
-                       added-vectors
-                       orientation))
-             (world->supp-tf (cl-transforms:transform-inv supp-tf))
+             ;; (supp-tf (cl-transforms:make-transform
+             ;;           added-vectors
+             ;;           orientation))
+             ;; (world->supp-tf (cl-transforms:transform-inv supp-tf))
              
-             (point (cl-transforms:transform-point world->supp-tf
-                     (cl-transforms:make-3d-vector x y 0)))
+             ;; (point (cl-transforms:transform-point world->supp-tf
+             ;;         (cl-transforms:make-3d-vector x y 0)))
 
-             (angle (list (2d-vectors-to-angle (list (cl-transforms:x point)
-                                                     (cl-transforms:y point))
-                                               (list ref-x ref-y))))
+             ;; (angle (list (2d-vectors-to-angle (list (cl-transforms:x point)
+             ;;                                         (cl-transforms:y point))
+             ;;                                   (list ref-x ref-y))))
              (pi-list (list pi)))
         
         (mapcar
@@ -183,8 +177,24 @@
      :ax ax-ran :ay ay-ran :az az-ran))
   ))
 
-;; (defparameter *behind-designator*
-;;            (desig:make-designator :location `((:location ,*spawn-area*))))
-;; (desig:reference *behind-designator*)
 
-
+(defun align-point-front (pose)
+  (let* ((ref-x (cl-transforms:x (cl-tf2:origin pose)))
+         (ref-y (cl-transforms:y (cl-tf2:origin pose)))
+         (orientation (cl-tf2:orientation pose))
+         (offset-vector (cl-transforms:rotate
+                         orientation
+                         (cl-transforms:make-3d-vector *robot-pose-offset* 0 0)))
+         
+         (added-vectors (cl-transforms:make-3d-vector
+                         (+ ref-x (cl-transforms:x offset-vector))
+                         (+ ref-y (cl-transforms:y offset-vector))
+                         0))
+         
+         (supp-tf (cl-transforms:make-transform
+                   added-vectors
+                   orientation))
+         
+         (world->supp-tf (cl-transforms:transform-inv supp-tf)))
+    (cl-transforms:transform-point world->supp-tf
+                                   (cl-transforms:make-3d-vector 0 0 0))))
