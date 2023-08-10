@@ -149,34 +149,31 @@
 
 ;; ================ Designator def =================================
 (prolog:def-fact-group cashier-plans (desig:action-grounding) 
-  (prolog:<- (desig:action-grounding ?action-designator
-                                     (cashier-object ?resolved-action-designator))
+  (prolog:<- (desig:action-grounding
+              ?action-designator
+              (cashier-object ?resolved-action-designator))
 
     (desig-prop ?action-designator (:type :cashier))
 
     (desig-prop ?action-designator (:object ?object-designator))
     (desig:current-designator ?object-designator ?current-desig)
     (desig-prop ?current-desig (:type ?type))
-    
-    (and (desig-prop ?action-designator (:arm ?arm))
-         (not (equal ?arm (nil))))
 
-    
-    (or (and (desig-prop ?current-desig (:size ?size))
-             (not (equal ?size (nil))))
-        (lisp-fun add-size-for-unkown ?size))
-             
     (or (and (desig-prop ?current-desig (:non-scanable ?n-scan))
-             (not (equal ?n-scan (nil))))
-        (lisp-fun prolog-shape ?type ?n-scan))
+             (not (equal ?n-scan nil)))
+        (and (lisp-fun prolog-shape ?type ?shape)
+             (lisp-fun prolog-disabled-side ?shape ?n-scan)))
 
     (or (and (desig-prop ?current-desig (:non-graspable ?n-grasp))
              (not (equal ?n-scan (nil))))
-        (lisp-fun check-object-size ?size ?n-grasp))
+        (lisp-fun check-object-size ?size ?n-grasp))    
     
+    (or (and (desig-prop ?current-desig (:size ?size))
+             (not (equal ?size (nil))))
+        (lisp-fun add-size-for-unkown ?size))     
+
     (or (desig-prop ?action-designator (:distance-between-spots ?dis))
         (lisp-fun defaul-distance ?dis))
-
     
     (and (desig-prop ?action-designator (:search-area ?search-area))
          (not (equal ?search-area (nil)))
@@ -186,10 +183,9 @@
                             ?dis
                             ?search-poses))
              (lisp-fun single-pose-search ?search-area ?search-poses)))
-    
-    (or (and (desig-prop ?action-designator (:goal-side ?goal-side))
-             (not (equal nil)))
-        (lisp-fun unknown-goal ?goal-side))
+
+    (and (desig-prop ?action-designator (:arm ?arm))
+         (not (equal ?arm (nil))))
              
     (and (desig-prop ?action-designator (:scan-pose ?scan-pose))
          (not (equal ?scan-pose nil)))
@@ -199,6 +195,10 @@
 
     (and (desig-prop ?action-designator (:failed-pose ?failed-pose))
          (not (equal ?failed-pose nil)))
+      
+    (or (and (desig-prop ?action-designator (:goal-side ?goal-side))
+             (not (equal nil)))
+        (lisp-fun unknown-goal ?goal-side))
     
     (desig:designator :action ((:type :cashier)
                                (:object-type ?type)
@@ -210,16 +210,15 @@
                                (:search-poses ?search-poses)
                                (:scan-pose ?scan-pose)
                                (:success-pose ?success-pose) 
-                               (:failed-pose ?failed-pose)
-                               )
+                               (:failed-pose ?failed-pose))
                       ?resolved-action-designator))
   
   (prolog:<- (desig:action-grounding ?action-designator
                                      (scan-object ?resolved-action-designator))
     
     (desig-prop ?action-designator (:type :scanning))
-    (desig-prop ?action-designator (:object-name ?name))
     (desig-prop ?action-designator (:object-type ?object-type))
+    (desig-prop ?action-designator (:object-name ?name))
     (desig-prop ?action-designator (:arm ?arm))
     (desig-prop ?action-designator (:non-scanable ?non-scanable))
     (desig-prop ?action-designator (:non-graspable ?non-graspable))

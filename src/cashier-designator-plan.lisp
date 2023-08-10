@@ -58,12 +58,6 @@
          (?base-sides (set-sides-helper ?object-name ?object-size))
          (?sides-transformed (transforms-map-t-side ?object-name ?base-sides)))
     (setf *base-sides* ?base-sides)
-
-  ;; (if (not (car ?non-graspable))
-  ;;     (setf ?non-graspable (check-object-size ?object-size)))
-
-  ;; (if (not (car ?non-scanable))
-  ;;     (setf ?non-scanable (prolog-shape ?object-type)))
   
   (print "check for non graspable sides")
 
@@ -80,12 +74,13 @@
   
   (multiple-value-bind (?perceived-object)
       (perceive-object (first ?scan-pose) ?object-type)
-    (let* ((?object-name (desig:desig-prop-value ?perceived-object :name)))
+    (let* ((?object-name (desig:desig-prop-value ?perceived-object :name))
+           (?base-sides (set-sides-helper ?object-name ?object-size)))
       
       (pick-place-alight-object ?object-name *base-sides* ?arm
                               ?object-type ?non-graspable ?perceived-object)
-
-  
+      (print ?non-graspable)
+      (print ?non-scanable)
   (if (exe:perform (desig:an action
                              (:type :scanning)
                              (:arm ?arm)
@@ -95,7 +90,7 @@
                              (:object-type ?object-type)
                              (:object-size ?object-size)
                              (:goal-side ?goal-side)
-                             (:sides-base *base-sides*)))
+                             (:sides-base ?base-sides)))
    
    (sucessful-scan ?object-type ?object-name *base-sides*
                    ?arm ?non-graspable (first ?scan-pose))

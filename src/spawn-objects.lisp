@@ -2,7 +2,9 @@
 
 (defparameter object-list-bottle
   (list 'bottle-1 :bottle
-        '((-2 2 0.75)(0 0 0 1)) '(0.05 0.05 0.10) (list :left :right :front :back :top) (list nil) :top))
+        '((-2 2 0.75)(0 0 0 1)) ;; '(0.05 0.05 0.10)
+        '(nil)
+        (list :left :right :front :back :top) (list nil) :top))
 
 
 (defparameter object-list-pringles
