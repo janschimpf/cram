@@ -46,6 +46,24 @@
                  ?success-pose
                  ?failed-pose))
   
+
+
+
+
+  (cpl:with-retry-counters ((percieve-retry (length ?search-poses)))
+    (cpl:with-failure-handling
+        ((cram-common-failures:perception-object-not-found (e)
+           (roslisp:ros-warn (cashier-demo) "perception failue ~a~%" e)
+           (cpl:do-retry percieve-retry
+             (setf ?search-poses (cdr ?search-poses))    
+           (cpl:retry))
+           (cpl:fail 'common-fail:high-level-failure)))
+      
+      (let* ((?nav-pose (first ?search-poses)))
+        (btr-utils:move-robot
+         (desig:reference (desig:a location (locate ?nav-pose) (arm (first ?arm))))))
+      (perceive-object (first ?search-poses) ?object-type)))
+
   
   (let* ((?nav-pose (first ?search-poses)))
     (move (desig:reference (desig:a location (locate ?nav-pose) (arm (first ?arm))))))
@@ -97,9 +115,8 @@
    
    (unsucessful-scan ?object-type ?object-name *base-sides*
                      ?arm ?non-graspable (first ?scan-pose)))
-  
-
-      )))
+  ))
+  )
 
 
 

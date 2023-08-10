@@ -158,6 +158,10 @@
     (desig-prop ?action-designator (:object ?object-designator))
     (desig:current-designator ?object-designator ?current-desig)
     (desig-prop ?current-desig (:type ?type))
+    
+    (or (and (desig-prop ?current-desig (:size ?size))
+             (not (equal ?size (nil))))
+        (lisp-fun add-size-for-unkown ?size))     
 
     (or (and (desig-prop ?current-desig (:non-scanable ?n-scan))
              (not (equal ?n-scan nil)))
@@ -168,10 +172,6 @@
              (not (equal ?n-scan (nil))))
         (lisp-fun check-object-size ?size ?n-grasp))    
     
-    (or (and (desig-prop ?current-desig (:size ?size))
-             (not (equal ?size (nil))))
-        (lisp-fun add-size-for-unkown ?size))     
-
     (or (desig-prop ?action-designator (:distance-between-spots ?dis))
         (lisp-fun defaul-distance ?dis))
     

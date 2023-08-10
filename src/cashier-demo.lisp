@@ -31,7 +31,7 @@
   (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
    (cl-transforms:make-3d-vector -2 2.4 0.75)
-   (cl-transforms:euler->quaternion :ax 0 :ay 0 :az pi)))
+   (cl-transforms:euler->quaternion :ax 0 :ay 0 :az (* 0.5 pi))))
 
 
 (defparameter *place-nav-pose*
@@ -208,7 +208,7 @@
         do
            (spawn-object-on-counter-general object (car spawn-poses))
                                                             
-           (setf spawn-poses (cdr spawn-poses))))
+           (setf spawn-poses (cddr spawn-poses))))
     
     (setf *success-poses-list* (spawn-vector-list success-point-1 success-point-2
                                                   5))
@@ -225,8 +225,7 @@
         (?arms (list :left))
         (?non-scanable (fifth object))
         (?non-graspable (sixth object))
-        (?search-area (list *spawn-area* ;; *second-spawn-area*
-                            ))
+        (?search-area (list *spawn-area* *second-spawn-area*))
         (?scan-pose (list *place-position*))
         (?success-pose (first *unsuccessful-poses-list*))
         (?failed-pose  (first *unsuccessful-poses-list*))
