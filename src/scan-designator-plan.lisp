@@ -117,17 +117,6 @@
               (cpl:fail 'common-fail:high-level-failure)
               T)))))
 
-(defun print-before-change-side ()
-  (print "_________________________
-___________________________________
-___________________________________
-___________________________________
-Before change side ________________
-___________________________________
-___________________________________
-___________________________________"
-         ))
-
 (defun next-side-to-check (located-sides sides-to-check)
   (let* ((right (second located-sides))
          (left (opposite-short (second located-sides)))

@@ -151,7 +151,7 @@
 (prolog:def-fact-group cashier-plans (desig:action-grounding) 
   (prolog:<- (desig:action-grounding
               ?action-designator
-              (cashier-object ?resolved-action-designator))
+              (cashier-plan ?resolved-action-designator))
 
     (desig-prop ?action-designator (:type :cashier))
 

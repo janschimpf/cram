@@ -19,7 +19,7 @@
     ))
 
 
-(defun cashier-object (&key
+(defun cashier-plan (&key
                          ((:object-type ?object-type))
                          ((:arm ?arm))
                          ((:non-scanable ?non-scanable))
@@ -55,9 +55,8 @@
            (cpl:fail 'common-fail:high-level-failure)))
       
       (let* ((?nav-pose (first ?search-poses)))
-        (move (desig:reference (desig:a location (locate ?nav-pose) (arm (first ?arm))))))
-      (perceive-object (first ?search-poses) ?object-type)))
-
+        (move (desig:reference (desig:a location (locate ?nav-pose) (arm (first ?arm)))))
+        (perceive-object (first ?search-poses) ?object-type))))
   
   (print "bringing object to the scanner")
   (let* ((?perceived-object (perceive-object (first ?search-poses) ?object-type))
@@ -80,7 +79,7 @@
          (?object-name (desig:desig-prop-value ?perceived-object :name))
          (?base-sides (set-sides-helper ?object-name ?object-size)))
       
-    (pick-place-alight-object ?object-name ?base-sides
+    (pick-place-align-object ?object-name ?base-sides
                               ?arm ?non-graspable
                               ?perceived-object))
 
@@ -222,8 +221,7 @@
     
 (defun align-object (object-name sides-base object-location)
   (let* ((align-point (cram-tf:3d-vector->list
-                       (cl-tf2:origin (cram-tf:robot-current-pose))))
-                       
+                       (cl-tf2:origin (cram-tf:robot-current-pose))))          
          
          (located (locate-sides
            (transforms-map-t-side object-name sides-base)
@@ -251,7 +249,6 @@
                                                          left-side))))
          
          (angle (points-to-angle object-location align-point front-side-location))
-
          
          (correct-angle-direction (angle-direction align-point
                                                    right-side-location
@@ -269,7 +266,7 @@
              :ay (second axis-found)
              :az (third axis-found)))))
 
-(defun pick-place-alight-object (object-name ?base-sides
+(defun pick-place-align-object (object-name ?base-sides
                                  arm non-graspable
                                  ?perceived-object)
       

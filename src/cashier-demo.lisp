@@ -1,4 +1,3 @@
-
 (in-package :cashier)
 
 (defparameter *look-nav-pose*
