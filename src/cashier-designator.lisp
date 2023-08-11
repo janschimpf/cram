@@ -190,11 +190,8 @@
     (and (desig-prop ?action-designator (:scan-pose ?scan-pose))
          (not (equal ?scan-pose nil)))
     
-    (and (desig-prop ?action-designator (:success-pose ?success-pose))
-         (not (equal ?success-pose nil)))
-
-    (and (desig-prop ?action-designator (:failed-pose ?failed-pose))
-         (not (equal ?failed-pose nil)))
+    (and (desig-prop ?action-designator (:after-poses ?after-poses))
+         (not (equal ?after-poses (nil))))
       
     (or (and (desig-prop ?action-designator (:goal-side ?goal-side))
              (not (equal nil)))
@@ -209,8 +206,7 @@
                                (:object-size ?size)
                                (:search-poses ?search-poses)
                                (:scan-pose ?scan-pose)
-                               (:success-pose ?success-pose) 
-                               (:failed-pose ?failed-pose))
+                               (:after-poses ?after-poses))
                       ?resolved-action-designator))
   
   (prolog:<- (desig:action-grounding ?action-designator

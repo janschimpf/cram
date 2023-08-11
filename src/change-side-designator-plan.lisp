@@ -196,12 +196,12 @@
   
   (multiple-value-bind (?perceived-object)
       (perceive-object *place-position* ?object-typ)
-
                              
-      (grasp-object-with-handling
-       arm
-       grasp
-       ?perceived-object)
+    (let* ((?current-grasp
+           (grasp-object-with-handling
+             arm
+             grasp
+             ?perceived-object)))
   
     (move *place-nav-pose*)
 
@@ -216,9 +216,9 @@
       (place-object-with-handling
        target-pose
        arm
-       *current-grasp*
+       ?current-grasp
        ))))
-)
+))
 
 
 
