@@ -91,7 +91,7 @@
   (let ((map-side-list (change-side-list-to-map side-list)))   
    (mapcar (lambda (x) (list (first x)
                              (distance-between-poses scan-vector
-                                                       (pose-to-vector-list (second x)))))
+                                                     (cram-tf:3d-vector->list (cl-tf2:origin (second x))))))
            map-side-list)))
 
 (defun change-side-list-to-map (side-list)

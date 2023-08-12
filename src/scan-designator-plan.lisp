@@ -48,7 +48,7 @@
 ;; iterates over the to scan sides.
 ;; first gets the current bottom side, front side and right side
 ;; then the path plan the path, execute the path, update object, scan
-(defun scan-object (&key
+(defun scan-plan (&key
                       ((:object-type ?object-type))
                       ((:object-name ?object-name))
                       ((:arm ?arm))
@@ -59,10 +59,14 @@
                       ((:sides-base ?sides-base))
                       ((:sides-transformed ?sides-transformed))
                       ((:sides-to-check ?sides-to-check))
+                      ((:scan-pose ?scan-pose))
                     &allow-other-keys)
   
   (declare (type keyword
                  ?object-type)
+
+           (type cl-tf2:pose-stamped ?scan-pose)
+
            
            (type list
                  ?sides-base

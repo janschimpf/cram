@@ -81,22 +81,20 @@
       
     (pick-place-align-object ?object-name ?base-sides
                               ?arm ?non-graspable
-                              ?perceived-object))
+                              ?perceived-object ?scan-pose))
 
 
   (let* ((?perceived-object (perceive-object ?scan-pose ?object-type))
          (?object-name (desig:desig-prop-value ?perceived-object :name))
          (?base-sides (set-sides-helper ?object-name ?object-size))
+         (?object (extended-object-desig ?perceived-object ?object-size
+                                         ?non-graspable ?non-scanable
+                                         ?goal-side ?base-sides))
          (?scan-state (exe:perform (desig:an action
                              (:type :scanning)
                              (:arm ?arm)
-                             (:non-scanable ?non-scanable)
-                             (:non-graspable ?non-graspable)
-                             (:object-name ?object-name)
-                             (:object-type ?object-type)
-                             (:object-size ?object-size)
-                             (:goal-side ?goal-side)
-                             (:sides-base ?base-sides)))))
+                             (:scan-pose ?scan-pose)
+                             (:object ?object)))))
     
     (let* ((?perceived-object-after-scan (perceive-object ?scan-pose ?object-type))
            (?object-name (desig:desig-prop-value ?perceived-object-after-scan :name))
@@ -268,7 +266,7 @@
 
 (defun pick-place-align-object (object-name ?base-sides
                                  arm non-graspable
-                                 ?perceived-object)
+                                 ?perceived-object ?place-pose)
       
   (let* ((object-pose-in-map (man-int:get-object-pose-in-map ?perceived-object))
          (object-vector-list (cram-tf:3d-vector->list
@@ -289,7 +287,7 @@
     (place-object-with-handling
      (cl-transforms-stamped:make-pose-stamped
       "map" 0.0
-      (cl-tf2:origin *place-position*)
+      (cl-tf2:origin ?place-pose)
       align)
       arm
       ?current-grasp))
@@ -336,5 +334,3 @@
       nil
       side))
 
-(defun defaul-distance ()
-  0.2)
