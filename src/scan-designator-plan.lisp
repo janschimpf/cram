@@ -80,7 +80,7 @@
   (cpl:with-retry-counters ((scan-counter-retries (length ?sides-to-check)))
     (cpl:with-failure-handling 
     ((common-fail:high-level-failure (e)
-       (roslisp:ros-warn (cashier-demo) "Falure happend: ~a~% adjusting place postion" e)
+       (roslisp:ros-warn (cashier-demo) "Falure happend: ~a~% adjusting side to be scanned" e)
        (cpl:do-retry scan-counter-retries
          (let* ((?perceived-object (perceive-object ?scan-pose ?object-type))
                 (?object-vector (cram-tf:3d-vector->list
