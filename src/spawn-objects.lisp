@@ -40,8 +40,8 @@
 
 
 (defparameter spawn-objects-list (list
-                                       object-list-bottle
-                                       object-list-cup
+                                       ;object-list-bottle
+                                       ;object-list-cup
                                        object-list-breakfast-cereal
                                        ;;object-list-small-fruit-juice
                                        ;;object-list-small-book

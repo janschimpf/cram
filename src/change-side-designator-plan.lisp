@@ -1,15 +1,16 @@
 (in-package :cashier)
 
-(defun change-side (&key
-                      ((:plan ?plan))
-                      ((:object-type ?object-type))
-                      ((:object-name ?object-name))
-                      ((:object-size ?object-size))
-                      ((:arm ?arm))
-                      ((:side-goal ?side-goal))
-                      ((:sides-base ?sides-base))
+(defun change-side-plan (&key
+                           ((:plan ?plan))
+                           ((:object-type ?object-type))
+                           ((:object-name ?object-name))
+                           ((:object-size ?object-size))
+                           ((:arm ?arm))
+                           ((:side-goal ?side-goal))
+                           ((:base-sides ?b-sides))
+                           ((:scan-pose ?scan-pose))
                     &allow-other-keys)
-  (declare (type list ?plan ?object-size ?sides-base ?arm)
+  (declare (type list ?plan ?object-size ?b-sides ?arm)
            (type keyword ?object-type)
            (type symbol ?object-name))
   
@@ -20,12 +21,12 @@
                                   (cl-tf2:origin (btr:object-pose ?object-name))))
                   
                   (3d-list (vector-change
-                            (cram-tf:3d-vector->list (cl-tf2:origin *place-position*))
+                            (cram-tf:3d-vector->list (cl-tf2:origin ?scan-pose))
                              ?side-goal
                              ?object-size))
                   
                   (located-sides (locate-sides
-                                  (transforms-map-t-side ?object-name ?sides-base)
+                                  (transforms-map-t-side ?object-name ?b-sides)
                                   object-vector))
                   
                   (orientation (orientation-change ?object-name move located-sides))
@@ -40,7 +41,7 @@
                       ?object-name
                       0)))
                
-               (execute-change-side ?object-type ?arm ?grasp target)
+               (execute-change-side ?object-type ?arm ?grasp target ?scan-pose)
                
                ))))
 
@@ -192,19 +193,19 @@
 
 
 
-(defun execute-change-side (?object-typ arm grasp target-pose)
+(defun execute-change-side (?object-typ ?arm ?grasp target-pose ?scan-pose)
   
   (multiple-value-bind (?perceived-object)
-      (perceive-object *place-position* ?object-typ)
+      (perceive-object ?scan-pose ?object-typ)
                              
     (let* ((?current-grasp
            (grasp-object-with-handling
-             arm
-             grasp
+             ?arm
+             ?grasp
              ?perceived-object)))
   
-    (move *place-nav-pose*)
 
+      (move (desig:reference (desig:a location (locate ?scan-pose) (arm (first ?arm)))))
     (cpl:with-retry-counters ((place-retry 3))
     (cpl:with-failure-handling
         ((common-fail:manipulation-low-level-failure (e)
@@ -215,7 +216,7 @@
       
       (place-object-with-handling
        target-pose
-       arm
+       ?arm
        ?current-grasp
        ))))
 ))

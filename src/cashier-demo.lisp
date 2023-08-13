@@ -218,7 +218,9 @@
         do
            (spawn-object-on-counter-general object (car spawn-poses))
                                                             
-           (setf spawn-poses (cddr spawn-poses))))
+           (setf spawn-poses (cddr spawn-poses))
+           (setf *goal-list* (append (list (list (first object) (car (last object)))) *scan-list*))
+        ))
     
   (setf *success-poses-list* (area->pose-stamped-list
                              (list success-point-1 success-point-2)
@@ -233,7 +235,7 @@
   (let* ((?object-name (first object))
         (?object-type (second object))
         (?object-size (fourth object))
-        (?goal-side (car (last object)))
+        (?goal-side nil)
         (?arms (list :left))
         (?non-scanable (fifth object))
         (?non-graspable (sixth object))

@@ -55,9 +55,7 @@
                       ((:non-scanable ?non-scanable))
                       ((:non-graspable ?non-graspable))
                       ((:object-size ?object-size))
-                      ((:goal-side ?goal-side))
-                      ((:sides-base ?sides-base))
-                      ((:sides-transformed ?sides-transformed))
+                      ((:base-sides ?b-sides))
                       ((:sides-to-check ?sides-to-check))
                       ((:scan-pose ?scan-pose))
                     &allow-other-keys)
@@ -66,11 +64,9 @@
                  ?object-type)
 
            (type cl-tf2:pose-stamped ?scan-pose)
-
            
            (type list
-                 ?sides-base
-                 ?sides-transformed
+                 ?b-sides
                  ?object-size
                  ?sides-to-check
                  ?arm
@@ -80,46 +76,55 @@
            (type symbol
                  ?object-name))
   
-  (setf ?sides-transformed (transforms-map-t-side ?object-name ?sides-base))
-
+  (print "before scan start")
   (cpl:with-retry-counters ((scan-counter-retries (length ?sides-to-check)))
     (cpl:with-failure-handling 
     ((common-fail:high-level-failure (e)
        (roslisp:ros-warn (cashier-demo) "Falure happend: ~a~% adjusting place postion" e)
        (cpl:do-retry scan-counter-retries
-         (let* ((?object-vector (cram-tf:3d-vector->list
-                                (cl-tf2:origin (btr:object-pose ?object-name))))
-                (?located-sides (locate-sides ?sides-transformed ?object-vector)))
+         (let* ((?perceived-object (perceive-object ?scan-pose ?object-type))
+                (?object-vector (cram-tf:3d-vector->list
+                                 (cl-tf2:origin
+                                  (man-int:get-object-pose-in-map ?perceived-object))))
+
+                (?sides-in-map (transforms-map-t-side ?object-name ?b-sides))
+                (?located-sides (locate-sides ?sides-in-map ?object-vector)))
+
 
            (setf ?sides-to-check (remove-element-from-list ?sides-to-check
                                                            (first ?located-sides)))
+           
 
-           (let* ((?check-side (next-side-to-check ?located-sides ?sides-to-check)))
+           (let* ((?check-side (next-side-to-check ?located-sides ?sides-to-check))
+                  (?object (extended-object-desig ?perceived-object
+                                                  ?object-size ?non-graspable
+                                                  ?non-scanable ?check-side ?b-sides)))
 
            (if (not (equal nil ?check-side))
              (exe:perform
               (desig:an action
-                      (:type :changing-side)
-                      (:object-name ?object-name)
-                      (:object-type ?object-type)
-                      (:arm ?arm)
-                      (:non-scanable ?non-scanable)
-                      (:non-graspable ?non-graspable)
-                      (:change-to-side ?check-side)
-                      (:sides-base ?sides-base)
-                      (:sides-transformed ?sides-transformed)
-                      (:object-size ?object-size)
-                      (:object-vector ?object-vector))))
+                        (:type :changing-side)
+                        (:object ?object)
+                        (:scan-pose ?scan-pose)
+                        (:arm ?arm)
+                        (:change-to-side ?check-side)
+                        (:sides-base ?b-sides)
+                        (:sides-transformed ?sides-in-map)
+                        (:object-size ?object-size)
+                        (:object-vector ?object-vector))))
              
-             (setf ?sides-transformed (transforms-map-t-side ?object-name ?sides-base))))
+
+             ))
            (cpl:retry))
        (cpl:fail 'common-fail:high-level-failure)))
-      
+      (let ((?perceived-object (perceive-object ?scan-pose ?object-type)))
+        (print "scanning")
+        (print ?sides-to-check)
       (if (equal nil ?sides-to-check)
           nil
-          (if (not (scan ?object-name ?object-type ?goal-side ?sides-transformed))
+          (if (not (scan ?perceived-object ?b-sides))
               (cpl:fail 'common-fail:high-level-failure)
-              T)))))
+              T))))))
 
 (defun next-side-to-check (located-sides sides-to-check)
   (let* ((right (second located-sides))
@@ -128,6 +133,7 @@
          (front (third located-sides))
          (back (opposite-short (third located-sides)))
          (side-list (list right left front back top)))
+    (print side-list)
     ;; check list if element(s) are part of sides-to-check
     ;; first element that is in the side-to-check list is the one we target next
     (loop for x in side-list

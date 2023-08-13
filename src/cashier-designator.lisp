@@ -11,22 +11,32 @@
     (list (car x) (cl-transforms:transform->pose map-T-side))))
           side-poses))
 
-(defun sides-to-check (sides-base non-scanable non-graspable)
+(defun sides-to-check (sides-base non-scanable non-graspable ?potential-goal)
+
   (let* ((combined-list (append non-scanable non-graspable))
          (sides (mapcar (lambda (x) (car x)) sides-base))
          (updated-sides (remove-if (lambda (x)
-                                     (member x combined-list
-                                             :test #'equal))
-                                   sides)))
-    (print updated-sides)
-    (setf *sides-log* (append combined-list *sides-log*))
-    updated-sides))
+                                         (member x combined-list
+                                                 :test #'equal))
+                                   sides))
+         
+         (goal-side (if (member ?potential-goal updated-sides :test #'equal)
+                        (list ?potential-goal)
+                        (list nil))))
+    ;; (print updated-sides)
+
+    (setf *sides-log* (append (list (list "goal" goal-side)) *sides-log*))
+    
+    (if (not (equal goal-side '(nil)))
+        goal-side
+        updated-sides)))
 
 (defun test-sides-to-check()
-  (let* ((sides (list (list :front) (list :back) (list :left) (list :right) (list :top)  (list :bottom)))
+  (let* ((sides (list (list :front) (list :back) (list :left)
+                      (list :right) (list :top)  (list :bottom)))
          (non-grasp (list :left :right))
          (non-scan (list nil)))
-    (sides-to-check sides non-grasp non-scan)
+    (sides-to-check sides non-grasp non-scan :top)
     
   ))
 
@@ -77,7 +87,7 @@
     (print bottom)
     (print right)
     (print front)
-         (print move-list)))
+    (print move-list)))
 
 (defun viable-grasp (side-list move-list non-graspable)
   (mapcar (lambda (x) (if (null (remove nil
@@ -101,14 +111,18 @@
 ;; then returns said path (list were the movement are the elements)
 (defun path-plan-next-side (side-list non-scanable non-graspable goal)
   ;;(current-side next-side side-list object-vector)
-  
   (let* ((combined-list (append non-scanable non-graspable))
          
          (sorted-sides-list (remove-if (lambda (x)
                                      (member (second x) combined-list
                                              :test #'equal))
                                        (check-sides-moves side-list goal))))
+    (print "side-list")
+    (print side-list)
+    (print "sorted-sides-list")
     (print sorted-sides-list)
+    (print (list (first (car sorted-sides-list))))
+    (print (null sorted-sides-list))
     (if (null sorted-sides-list)
         (path-second-step side-list goal non-graspable)
       (list (first (car sorted-sides-list))))))
@@ -220,12 +234,14 @@
     (desig-prop ?current-desig (:type ?type))
     (desig-prop ?current-desig (:name ?name))
     (desig-prop ?current-desig (:pose ?pose))
-    (desig-prop ?current-desig (:base-sides ?b-sides))
-    (desig-prop ?current-desig (:goal-side ?goal))
     
     (or (and (desig-prop ?current-desig (:size ?size))
              (not (equal ?size (nil))))
-        (lisp-fun add-size-for-unkown ?size))     
+        (lisp-fun add-size-for-unkown ?size))
+
+    (or (and (desig-prop ?current-desig (:base-sides ?b-sides))
+             (not (equal ?b-sides (nil))))
+        (lisp-fun set-sides-helper ?name ?size ?b-sides))
 
     (or (and (desig-prop ?current-desig (:non-scanable ?n-scan))
              (not (equal ?n-scan nil)))
@@ -238,8 +254,12 @@
 
     (desig-prop ?action-designator (:scan-pose ?scan-pose))
 
+    (or (and (desig-prop ?current-desig (:goal-side ?goal))
+             (not (equal nil)))
+        (lisp-fun unknown-goal ?goal-side))
+
     (lisp-fun transforms-map-T-side ?name ?b-sides ?sides-transformed)
-    (lisp-fun sides-to-check ?sides-transformed ?n-scan ?n-grasp ?sides-to-check)
+    (lisp-fun sides-to-check ?sides-transformed ?n-scan ?n-grasp ?goal ?sides-to-check)
 
     (desig:designator :action ((:type :scanning)
                                (:object-type ?type)
@@ -248,72 +268,68 @@
                                (:arm ?arm)
                                (:non-scanable ?n-scan)
                                (:non-graspable ?n-grasp)
-                               (:sides-base ?b-sides)
-                               (:goal-side ?goal)
-                               (:sides-transformed ?sides-transformed)
+                               (:base-sides ?b-sides)
                                (:sides-to-check ?sides-to-check)
                                (:scan-pose ?scan-pose))
                       ?resolved-action-designator))
 
   (prolog:<- (desig:action-grounding ?action-designator
-                                     (change-side ?resolved-action-designator))
+                                     (change-side-plan ?resolved-action-designator))
+    
     (desig-prop ?action-designator (:type :changing-side))
-    (desig-prop ?action-designator (:object-type ?object-type))
-    (desig-prop ?action-designator (:object-name ?object-name))
-    (desig-prop ?action-designator (:object-size ?object-size))
+    (desig-prop ?action-designator (:object ?object-designator))
+    (desig-prop ?action-designator (:scan-pose ?scan-pose))
+
+    (desig-prop ?action-designator (:object ?object-designator))
+    (desig:current-designator ?object-designator ?current-desig)
+    (desig-prop ?current-desig (:type ?type))
+    (desig-prop ?current-desig (:name ?name))
+    (desig-prop ?current-desig (:pose ?pose))
+    
+    (or (and (desig-prop ?current-desig (:size ?size))
+             (not (equal ?size (nil))))
+        (lisp-fun add-size-for-unkown ?size))
+
+    (or (and (desig-prop ?current-desig (:base-sides ?b-sides))
+             (not (equal ?b-sides (nil))))
+        (lisp-fun set-sides-helper ?name ?size ?b-sides))
+
+    (or (and (desig-prop ?current-desig (:non-scanable ?n-scan))
+             (not (equal ?n-scan nil)))
+        (and (lisp-fun prolog-shape ?type ?shape)
+             (lisp-fun prolog-disabled-side ?shape ?n-scan)))
+
+    (or (and (desig-prop ?current-desig (:non-graspable ?n-grasp))
+             (not (equal ?n-scan (nil))))
+        (lisp-fun check-object-size ?size ?n-grasp))
+
+    (or (and (desig-prop ?current-desig (:goal-side ?goal))
+             (not (equal nil)))
+        (lisp-fun unknown-goal ?goal-side))
+
     (desig-prop ?action-designator (:arm ?arm))
-    (desig-prop ?action-designator (:non-scanable ?non-scanable))
-    (desig-prop ?action-designator (:non-graspable ?non-graspable))
-    (desig-prop ?action-designator (:sides-base ?sides-base))
     (desig-prop ?action-designator (:change-to-side ?side-goal))
     (desig-prop ?action-designator (:object-vector ?object-vector))
     (desig-prop ?action-designator (:sides-transformed ?sides-transformed))
 
 
     (lisp-fun locate-sides ?sides-transformed ?object-vector ?located-sides)
-    (lisp-fun side-changes ?located-sides ?non-graspable ?side-changes)
-    (lisp-fun path-plan-next-side ?side-changes ?non-scanable ?non-graspable ?side-goal ?plan)
+    (lisp-fun side-changes ?located-sides ?n-grasp ?side-changes)
+    (lisp-fun path-plan-next-side ?side-changes ?n-scan ?n-grasp ?goal ?plan)
 
     (desig:designator :action ((:type :changing-side)
-                               (:object-name ?object-name)
-                               (:object-type ?object-type)
-                               (:object-size ?object-size)
+                               (:object-name ?name)
+                               (:object-type ?type)
+                               (:object-size ?size)
                                (:arm ?arm)
-                               (:sides-base ?sides-base)
+                               (:base-sides ?b-sides)
                                (:plan ?plan)
-                               (:side-goal ?side-goal))
+                               (:side-goal ?goal)
+                               (:scan-pose ?scan-pose))
                       
                       ?resolved-action-designator)))
-  
-   ;; (prolog:<- (desig:action-grounding ?action-designator
-   ;;                                    (align-object ?resolved-action-designator))
-     
-   ;;   (desig-prop ?action-designator (:type :align-side))
-   ;;   (desig-prop ?action-designator (:object ?object-designator))
-   ;;   (spec:property ?action-designator (:object ?object-designator))
-   ;;   (desig:current-designator ?object-designator ?current-desig)
-   ;;   (spec:property ?current-desig (:type ?object-type))
-   ;;   (spec:property ?current-desig (:name ?object-name))
-     
-   ;;   (desig-prop ?action-designator (:arm ?arm))
-   ;;   (desig-prop ?action-designator (:non-scanable ?non-scanable))     
-   ;;   (desig-prop ?action-designator (:non-graspable ?non-graspable))
-   ;;   (desig-prop ?action-designator (:sides-base ?sides-base))
-   ;;   (desig-prop ?action-designator (:center-point ?center))
-   ;;   (desig-prop ?action-designator (:align-point ?align))
-   ;;   (desig-prop ?action-designator (:front-point ?front))
-                 
 
-   ;;  (desig:designator :action ((:type :align-side)
-   ;;                             (:object-name ?object-name)
-   ;;                             (:object-type ?object-type)
-   ;;                             (:object-size ?object-size)
-   ;;                             (:arm ?arm)
-   ;;                             (:sides-base ?sides-base)
-   ;;                             (:plan ?plan)
-   ;;                             (:side-goal ?side-goal))
-                      
-   ;;                    ?resolved-action-designator)))
+;;;;; <---------- Area-poses-gen ------------------>
 
 
 (defun area->pose-stamped-list (?search-area distance-between-spots)

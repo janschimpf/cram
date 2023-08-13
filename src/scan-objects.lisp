@@ -1,5 +1,5 @@
 (in-package :cashier)
-
+(defparameter *goal-list* '(nil))
 (defparameter *sides-log* '(nil))
 (defparameter *scan-area*
   (cl-transforms-stamped:make-pose-stamped
@@ -25,23 +25,29 @@
       side)))
 
 (defun set-sides-helper (object-name object-size-list)
-  (set-sides object-name (first object-size-list) (second object-size-list) (third object-size-list)))
+  (set-sides object-name
+             (first object-size-list)
+             (second object-size-list)
+             (third object-size-list)))
 
-(defun scan (object-name type side side-list)
-  (let* ((scan-area-vector (first (cram-tf:pose->list
-                                   (cram-tf::pose-stamped->pose *scan-area*))))
-        
-        (object-vector (cram-tf:3d-vector->list
-                        (cl-tf2:origin (btr:object-pose object-name))))
+(defun scan (?perceived-object b-sides)
+  (let* ((scan-area-origin (cl-tf2:origin *scan-area*))
+         (pose-in-map (man-int:get-object-pose-in-map ?perceived-object))
+         (object-name (desig-prop-value ?perceived-object :name))
+         (object-type (desig-prop-value ?perceived-object :type))
+         (object-vector (cram-tf:3d-vector->list
+                         (cl-tf2:origin pose-in-map)))
+         (sides-in-map (transforms-map-t-side object-name b-sides))
          (scanned nil))
     
-    (spawn-highlight-box *scan-area* (list 0.03 0.03 0.03))
+    (spawn-highlight-box *scan-area* (list 0.05 0.05 0.03))
     
-    (if (and (side-check side object-vector side-list object-name)
-             (x-y-z-pose-check scan-area-vector object-vector))
+    (if (and (side-check object-vector sides-in-map object-name)
+             (x-y-z-pose-check scan-area-origin object-vector))
         (setf scanned t))
+    
     (if scanned
-        (publish-rviz-marker (product-type-and-dan-from-gtin (prolog-scan-gtin type))))
+        (publish-rviz-marker (product-type-and-dan-from-gtin (prolog-scan-gtin object-type))))
     
     (btr-utils:kill-object 'box-1)
     scanned
@@ -49,11 +55,10 @@
 
 
 (defun x-y-z-pose-check (scan-area-vector object-vector)
-  (print scan-area-vector)
-  (print object-vector)
-  (let*  ((scan-x (first scan-area-vector))
-         (scan-y (second scan-area-vector))
-         (scan-z (third scan-area-vector))
+
+  (let*  ((scan-x (cl-tf2:x scan-area-vector))
+         (scan-y (cl-tf2:y scan-area-vector))
+         (scan-z (cl-tf2:z scan-area-vector))
          (object-x (first object-vector))
          (object-y (second object-vector))
           (object-z (third object-vector)))
@@ -62,26 +67,24 @@
              (< object-x  (+ scan-x 0.10))
              (< (- scan-y 0.1) object-y)
              (< object-y  (+ scan-y 0.1))
-             (< (- scan-z 0.1) object-z)
-             (< object-z   (+ scan-z 0.15)))
+             (< (- scan-z 0.05) object-z)
+             (< object-z (+ scan-z 0.05)))
         t
         nil
         )) 
   )
 
 
-(defun side-check (side-to-be object-vector side-list object-name)
-  (let* ((side-as-is (car (locate-sides side-list object-vector)))
-         (path-name (concatenate 'string "/tmp/"
-                                 (format nil "~a" object-name)
-                                 "-"
-                                 (format nil"~a" side-as-is)
-                                 ".png")))
-    (setf *sides-log* (append (list side-as-is) *sides-log*))
-    (btr::png-from-camera-view 
-     :png-path path-name)
+(defun side-check (object-vector side-list object-name)
+  (let* ((bottom-side (car (locate-sides side-list object-vector)))
+         (goal-tuple (list object-name bottom-side))
+         (path-name (concatenate 'string 
+                                 (format nil "~a" goal-tuple))))
     
-    (if (equal side-to-be side-as-is)
+    (setf *sides-log* (append (list goal-tuple) *sides-log*))
+    (spawn-side-visualisation side-list path-name)
+    
+    (if (member goal-tuple *goal-list* :test #'equal)
             t
             nil
   )))
