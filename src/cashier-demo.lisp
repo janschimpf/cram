@@ -219,7 +219,7 @@
            (spawn-object-on-counter-general object (car spawn-poses))
                                                             
            (setf spawn-poses (cddr spawn-poses))
-           (setf *goal-list* (append (list (list (first object) (car (last object)))) *scan-list*))
+           (setf *goal-list* (append (list (list (first object) (car (last object)))) *goal-list*))
         ))
     
   (setf *success-poses-list* (area->pose-stamped-list
