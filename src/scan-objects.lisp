@@ -61,7 +61,7 @@
     (setf *sides-log* (append (list goal-tuple *goal-list*) *sides-log*))
 
     (spawn-side-visualisation side-list path-name)
-    (if (member 'goal-tuple *goal-list* :test #'equal)
+    (if (member goal-tuple *goal-list* :test #'equal)
             t
             nil)))
 

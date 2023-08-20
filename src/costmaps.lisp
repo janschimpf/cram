@@ -1,6 +1,6 @@
 (in-package :cashier)
 
-(defparameter *robot-arm-offset* 0.12)
+(defparameter *robot-arm-offset* 0.08)
 (defparameter *robot-pose-offset* 0.7)
 
 (defparameter *test*

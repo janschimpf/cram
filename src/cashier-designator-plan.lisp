@@ -100,7 +100,7 @@
            (?base-sides (set-sides-helper ?object-name ?object-size))
            (?object-pose-after-scan (man-int:get-object-pose-in-map ?perceived-object-after-scan))
            (?grasp (which-sides-can-be-grasped
-                    (side-location ?perceived-object ?base-sides)
+                    (side-location ?perceived-object-after-scan ?base-sides)
                  ?non-graspable))
            (?orientation (cl-tf2:orientation ?object-pose-after-scan))
            (?place-pose (if ?scan-state

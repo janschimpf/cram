@@ -14,12 +14,15 @@
 
 (defparameter object-list-breakfast-cereal
   (list 'breakfast-cereal-1 :breakfast-cereal
-        '((-2 2 0.75) (0 0 0 1)) '(0.10 0.05 0.15)
-        (list :right :left) (list nil) :top))
+        '((-2 2 0.75) (0 0 0 1))
+        '(0.10 0.05 0.15)
+        (list :right :left) (list nil) :front))
 
 (defparameter object-list-cup
   (list 'cup-1 :cup
-        '((-2 2 0.75)(0 0 0 1)) '(0.03 0.03 0.10) (list :front :back :left :right) (list nil) :top))
+        '((-2 2 0.75)(0 0 0 1))
+        '(0.03 0.03 0.10)
+        (list :front :back :left :right) (list nil) :top))
 
 (defparameter object-list-small-cube
   (list 'small-cube-1 :small-cube
