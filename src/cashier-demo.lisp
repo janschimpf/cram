@@ -48,6 +48,15 @@
    (cl-transforms:make-3d-vector -2 1.2 0.75)
    (cl-transforms:euler->quaternion :ax 0 :ay 0 :az 0)))
 
+
+(defparameter *place-position-other-side*
+  (cl-transforms-stamped:make-pose-stamped
+   "map"
+   0.0
+   (cl-transforms:make-3d-vector -2.2 1.2 0.75)
+   (cl-transforms:euler->quaternion :ax 0 :ay 0 :az pi)))
+
+
 (defparameter *after-scan-nav-pose*
   (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
@@ -264,6 +273,8 @@
                  )))
   ;;(btr-utils:kill-object ?object-name))))
   (print *sides-log*)
+  (print *goal-list*)
+  (setf *goal-list* nil)
   (setf *sides-log* nil))
 
 

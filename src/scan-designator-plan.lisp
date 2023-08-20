@@ -1,50 +1,5 @@
 (in-package :cashier)
-
-
-;; ================locating the current-side================
-
-;;returns relative bottom, right and front sides in form of a list.
-(defun locate-sides (side-list object-vector)
-  (let* ((right-list (vector-offset object-vector (list 0 -0.1 0)))
-         (front-list (vector-offset object-vector (list +0.1 0 0)))
-         (bottom-list  (vector-offset object-vector (list 0 0 -0.1)))
-         
-         (right (caar (shortest-distance-between-all-sides side-list right-list)))
-         (updated-side-list-1 (filter-sides (filter-sides side-list right) (opposite-short right)))
-         
-         (front (caar (shortest-distance-between-all-sides updated-side-list-1 front-list)))
-         (updated-side-list-2 (filter-sides (filter-sides updated-side-list-1 front) (opposite-short front)))
-         
-         (bottom (caar (shortest-distance-between-all-sides updated-side-list-2 bottom-list))))
-    (list bottom right front)
-    ))
-
-(defun vector-offset (vector offset-list)
-  (let ((x (first offset-list))
-        (y (second offset-list))
-        (z (third offset-list)))
-  (list (+ (first vector) x)
-        (+ (second vector) y)
-        (+ (third vector) z))))
-
-
-(defun filter-sides (side-list already-located-side)
-  (remove nil
-          (mapcar (lambda (x)
-                    (if (equal (car x) already-located-side)
-                        nil
-                        x))
-                  side-list) 
-  ))
-
-;; ============= executing the path plan ====================
-
-
-
-(defun origin->list (object-name)
-  (cram-tf:3d-vector->list (cl-tf2:origin (btr:object-pose object-name))))
-
-;; executes the path plan 
+(defparameter counter 0)
 ;; iterates over the to scan sides.
 ;; first gets the current bottom side, front side and right side
 ;; then the path plan the path, execute the path, update object, scan
@@ -76,29 +31,37 @@
            (type symbol
                  ?object-name))
   
+  (let* ((?sides-to-be-check ?sides-to-check)) 
   (print "before scan start")
-  (cpl:with-retry-counters ((scan-counter-retries (length ?sides-to-check)))
+  (cpl:with-retry-counters ((scan-counter-retries (length ?sides-to-be-check)))
     (cpl:with-failure-handling 
     ((common-fail:high-level-failure (e)
        (roslisp:ros-warn (cashier-demo) "Falure happend: ~a~% adjusting side to be scanned" e)
        (cpl:do-retry scan-counter-retries
          (let* ((?perceived-object (perceive-object ?scan-pose ?object-type))
+                (?sides-located (side-location ?perceived-object ?b-sides))
                 (?object-vector (cram-tf:3d-vector->list
                                  (cl-tf2:origin
                                   (man-int:get-object-pose-in-map ?perceived-object))))
-
-                (?sides-in-map (transforms-map-t-side ?object-name ?b-sides))
-                (?located-sides (locate-sides ?sides-in-map ?object-vector)))
-
-
-           (setf ?sides-to-check (remove-element-from-list ?sides-to-check
-                                                           (first ?located-sides)))
+                (?transform (man-int:get-object-transform ?perceived-object))
+                
+                (?sides-in-map (transform-b-sides-t-x ?b-sides ?transform)))
            
+           (setf ?sides-to-be-check (remove-element-from-list ?sides-to-be-check
+                                                              (first ?sides-located)))
+           (print "high-light ?sides-to-be-checked =====================
 
-           (let* ((?check-side (next-side-to-check ?located-sides ?sides-to-check))
+
+
+          ============================")
+           (print (first ?sides-in-map))
+           (print ?sides-to-check)
+
+           (let* ((?check-side (next-side-to-check ?sides-located ?sides-to-be-check))
                   (?object (extended-object-desig ?perceived-object
                                                   ?object-size ?non-graspable
                                                   ?non-scanable ?check-side ?b-sides)))
+             (print "next side")
 
            (if (not (equal nil ?check-side))
              (exe:perform
@@ -111,20 +74,17 @@
                         (:sides-base ?b-sides)
                         (:sides-transformed ?sides-in-map)
                         (:object-size ?object-size)
-                        (:object-vector ?object-vector))))
-             
-
-             ))
+                        (:object-vector ?object-vector))))))
            (cpl:retry))
        (cpl:fail 'common-fail:high-level-failure)))
       (let ((?perceived-object (perceive-object ?scan-pose ?object-type)))
         (print "scanning")
-        (print ?sides-to-check)
-      (if (equal nil ?sides-to-check)
+        (print (side-location ?perceived-object ?b-sides))
+      (if (equal nil ?sides-to-be-check)
           nil
           (if (not (scan ?perceived-object ?b-sides))
               (cpl:fail 'common-fail:high-level-failure)
-              T))))))
+              T)))))))
 
 (defun next-side-to-check (located-sides sides-to-check)
   (let* ((right (second located-sides))

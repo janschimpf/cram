@@ -14,7 +14,8 @@
 
 (defparameter object-list-breakfast-cereal
   (list 'breakfast-cereal-1 :breakfast-cereal
-        '((-2 2 0.75) (0 0 0 1)) '(0.10 0.05 0.15) (list nil) (list nil) :back))
+        '((-2 2 0.75) (0 0 0 1)) '(0.10 0.05 0.15)
+        (list :right :left) (list nil) :top))
 
 (defparameter object-list-cup
   (list 'cup-1 :cup
@@ -71,6 +72,20 @@
   (btr-utils:spawn-object 'bottle-1 :bottle :color '(0 1 0) :pose '((-2 1.3 0.8) (0 0 0 1)))
   (btr:simulate btr:*current-bullet-world* 10))
 
+(defun spawn-breakfast ()
+  (let* ((orientation
+           (cl-tf2:euler->quaternion :ax (- (/ pi 2)) :ay 0 :az 0))
+         (front '(-0.7044579189291776d0 0.013910529484711321d0 -0.7096014702720645d0 -0.0033601518999026667d0))
+         (right '(0 0 0.7071067811865475d0 0.7071067811865476d0))
+         (left '(-0.7071067811865475d0 0.0d0 0.0d0 0.7071067811865476d0))
+         (test '(7.096579573215435d-9 -0.9999999828857289d0 -8.896134450347508d-10 5.5511151122311594d-17)))
+        (btr-utils:spawn-object
+          'breakfast-cereal-1
+          :breakfast-cereal
+          :color '(0 1 0)
+          :pose (list (list -2 1.3 0.8) '(0 0 0 1)))
+  (btr:simulate btr:*current-bullet-world* 10)))
+
 (defun spawn-pickup-cylinder-air ()
   "Spawn primitive cylinder as :pringles item and try to pick up."
     (btr:add-object btr:*current-bullet-world* :cylinder-item 'cylinder-1
@@ -116,12 +131,13 @@
                   ))
 
 (defun spawn-side-visualisation (transformed-side-list purpose)
-  (let* ((color-list (list '(1 1 1)
-                           '(1 1 0)
-                           '(1 0 1)
-                           '(0 1 1)
-                           '(1 0 0)
-                           '(0 0 1)))
+  (let* ((color-list (list  '(1 1 0) ;; yellow
+                            '(1 1 1) ;; grey
+                           '(1 0 1) ;; Purple
+                           '(0 1 1) ;; Bright blue
+                           '(1 0 0) ;; Red
+                           '(0 0 1)) ;;dark blue
+                           )
          (path-name (concatenate 'string "/tmp/"
                                  purpose
                                  ".png")))
@@ -135,7 +151,8 @@
     (btr::png-from-camera-view :png-path path-name)
     (loop for side in transformed-side-list
           do
-             (btr-utils:kill-object (car side)))))
+             (btr-utils:kill-object (car side)))
+    ))
 
 (defun test-case-sides ()
   (transforms-map-t-side 'bottle-1 (set-sides 'bottle-1 0.1 0.1 0.1)))

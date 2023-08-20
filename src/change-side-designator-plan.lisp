@@ -16,7 +16,7 @@
   
   (loop for move in (remove nil ?plan)
         do
-           
+           (print move)
            (let* ((object-vector (cram-tf:3d-vector->list
                                   (cl-tf2:origin (btr:object-pose ?object-name))))
                   
@@ -24,33 +24,61 @@
                             (cram-tf:3d-vector->list (cl-tf2:origin ?scan-pose))
                              ?side-goal
                              ?object-size))
+                  (perceived-object (perceive-object ?scan-pose ?object-type))
+                  (transformed (transform-b-sides-t-x ?b-sides 
+                                                                (man-int:get-object-transform
+                                                                perceived-object)))
                   
-                  (located-sides (locate-sides
-                                  (transforms-map-t-side ?object-name ?b-sides)
-                                  object-vector))
+                  (located-sides (side-location perceived-object ?b-sides))
                   
-                  (orientation (orientation-change ?object-name move located-sides))
+                  (orientation-change (orientation-change-with-move move located-sides))
+                  (new-orientation (helper-function
+                                    (man-int:get-object-pose perceived-object)
+                                    orientation-change
+                                    (cram-tf:robot-current-transform)))
                   (?grasp (which-sides located-sides move)))
-             
+
+             (print "============================================")
+             (print "SHOW ME WHICH SIDES YOU WANT TO GRASP DAMNED")
+             (print "============================================")
+             (print ?grasp)
+             (print orientation-change)
+             (print new-orientation)
              (setf *sides-log* (append (list ?grasp (list move) located-sides) *sides-log*))
              (let ((target
                      (place-pose-stability-adjustment
-                      orientation
                       3d-list
+                      new-orientation
                       ?object-type
                       ?object-name
-                      0)))
+                      0
+                      )))
                
-               (execute-change-side ?object-type ?arm ?grasp target ?scan-pose)
-               
-               ))))
+               (print target)
+               (execute-change-side ?object-type ?arm ?grasp target ?scan-pose)              
+               )
+             )))
 
-
+(defun helper-function (pose orientation transform)
+  (let* ((origin (cl-tf2:origin pose))
+         (pose-orientation (cl-tf2:orientation pose))
+         (new-orientation (cl-tf2:q*
+                           pose-orientation
+                           orientation))
+         (new-pose (cl-transforms-stamped:transform transform
+                                                    (cl-tf2:make-pose origin new-orientation))))
+    ;; (print "pose and new orientation")
+    ;; (print orientation)
+    ;; (print pose-orientation)
+    ;; (print new-orientation)
+    (cl-tf2:orientation new-pose)
+      ))
 
 ;;; ===== pose changes for placing the object with a different orientation / side ======
 
 (defun place-pose-stability-adjustment
-    (orientation origin-list
+    (origin-list
+     orientation
      object-type object-name
      offset-start)
   (let ((offset offset-start))
@@ -79,7 +107,8 @@
 
 
 ;;takes care of the the needed orientation change to turn the object
-(defun orientation-change (object-name move located-sides)
+(defun orientation-change (move located-sides)
+  (print move)
   (let* ((90-turn (/ pi 2))
          (turn
            (cond
@@ -88,9 +117,9 @@
              ((string-equal "front-turn" move)
               (list 0 (/ pi 2) 0))
              ((string-equal "right-turn" move)
-              (list (/ pi 2) 0 0 ))
+              (list (/ pi 2) 0 0))
              ((string-equal "left-turn" move)
-              (list (-(/ pi 2)) 0 0))
+              (list (- (/ pi 2)) 0 0))
              ((string-equal "flip" move)
               (list pi 0 0))
              ((string-equal "left-roation" move)
@@ -98,25 +127,27 @@
              ((string-equal "right-rotation" move)
               (list 0 0 (/ pi 2)))
              (t (print move))))
-         (result (finding-axis located-sides turn)))
-    (cl-tf2:q*
-            (cl-tf2:orientation (btr:object-pose object-name))
-            (cl-tf2:euler->quaternion
-             :ax (first turn)
-             :ay (second turn)
-             :az (third turn)))))
+         (result (finding-axis located-sides turn move)))
+    (cl-tf:euler->quaternion
+     :ax (first result)
+     :ay (second result)
+     :az (third result))))
 
-(defun finding-axis (located-sides turn)
+(defun finding-axis (located-sides turn move)
   (let* ((axis-bottom (axis-short (first located-sides)))
          (axis-right (axis-short (second located-sides)))
          (axis-front (axis-short (third located-sides)))
+         (axis-list (if (or (equal move "front-turn")
+                            (equal move "back-turn"))
+                        (list axis-front axis-right axis-bottom)
+                        (list axis-front axis-bottom axis-right))))
+    (print "====================== axis-list")
+    (print axis-list)
+    (print located-sides)
 
-         (axis-list (list axis-right axis-front axis-bottom)))
-    (print (mapcar (lambda (x) (matching-axis x turn))
-                   axis-list))
-    (print "after match")
     (mapcar (lambda (x) (matching-axis x turn))
-                   axis-list)))
+                    axis-list))
+  )
 
 ;; located list is bottom right front
 (defun matching-axis (axis list-match)
@@ -137,6 +168,111 @@
      (- (third list-match)))
     ))
 
+(defun axis-correction (axis turn)
+  (cond
+    ((string-equal "Y" axis)
+     (- turn))
+    ((string-equal "-Y" axis)
+     turn)))
+
+
+(defun orientation-change-with-move (move located-sides)
+  (print move)
+  (let* ((90-turn (/ pi 2))
+         (turn
+           (cond
+             ((or (string-equal "back-turn" move)
+                  (string-equal "left-turn" move)
+                  (string-equal "left-roation" move))
+              (- 90-turn))
+             ((or (string-equal "front-turn" move)
+                  (string-equal "right-turn" move)
+                  (string-equal "right-rotation" move))
+              90-turn)
+             ((string-equal "flip" move)
+              pi)
+             (t (print move))))
+         (result (if (or (string-equal "front-turn" move)
+                         (string-equal "back-turn" move))
+                     (finding-axis-front/back located-sides turn move)
+                     (finding-axis-rest located-sides turn move))))
+    (cl-tf:euler->quaternion
+     :ax (first result)
+     :ay (second result)
+     :az (third result))))
+
+(defun finding-axis-front/back (located-sides turn move)
+  (let* ((axis-bottom (axis-short (first located-sides)))
+         (axis-right (axis-short (second located-sides)))
+         (axis-front (axis-short (third located-sides)))
+         (axis-list (list axis-front axis-right axis-bottom)))
+    
+    (print "====================== axis-list-with turn")
+    (print axis-list)
+    (print located-sides)
+
+    (mapcar (lambda (x) (matching-axis-with-turn x move turn))
+            axis-list)))
+
+
+(defun finding-axis-rest (located-sides turn move)
+  (let* ((axis-bottom (axis-short (first located-sides)))
+         (axis-right (axis-short (second located-sides)))
+         (axis-front (axis-short (third located-sides)))
+         (turn-direction (car (remove nil (list (axis-correction axis-bottom turn)
+                                                (axis-correction axis-right turn)
+                                                (axis-correction axis-front turn)))))
+         (result (cond ((or (string-equal "Y" axis-bottom)
+                            (string-equal "-Y" axis-bottom))
+                        (list turn-direction 0 0))
+                       ((or (string-equal "Y" axis-right)
+                            (string-equal "-Y" axis-right))
+                        (list turn-direction 0 0))
+                       ((or (string-equal "Y" axis-front)
+                           (string-equal "-Y" axis-front))
+                           (list 0 turn-direction 0))))
+
+         (axis-list (list axis-bottom axis-right axis-front)))
+    
+    (print "====================== axis-list-with turn")
+    (print axis-list)
+    (print located-sides)
+    (print result)
+    result))
+
+;; located list is bottom right front
+(defun matching-axis-with-turn (axis move turn)
+  (cond
+    ((and (string-equal "X" axis)
+          (or (string-equal "left-turn" move)
+              (string-equal "right-turn" move)))
+     turn)
+    ((and (string-equal "-X" axis)
+          (or (string-equal "left-turn" move)
+              (string-equal "right-turn" move)))
+     (- turn))
+    
+    ((and (string-equal "Y" axis)
+          (or (string-equal "front-turn" move)
+              (string-equal "back-trun" move)))
+     turn)
+    ((and (string-equal "-Y" axis)
+          (or (string-equal "front-turn" move)
+              (string-equal "back-trun" move)))
+     (- turn))
+    
+    ((and (string-equal "Z" axis)
+          (or (string-equal "left-rotation" move)
+              (string-equal "right-roation" move)))
+     turn)
+    ((and (string-equal "-Z" axis)
+          (or (string-equal "left-rotation" move)
+              (string-equal "right-roation" move)))
+     (- turn))
+    (t 0)
+    ))
+
+
 
 (defun get-axis (located-sides)
   (let* ((bottom (nth 1 located-sides))
@@ -146,11 +282,11 @@
 
 
 ;; <<<---->>> Testing
-(defun test-finding-axis ()
-  (let* ((located (list :front :right :top))
-         (turn (list 0 0 (/ pi 2))))
-  (finding-axis located turn)
-    ))
+;; (defun test-finding-axis ()
+;;   (let* ((located (list :front :right :top))
+;;          (turn (list 0 0 (/ pi 2))))
+;;   (finding-axis located turn)
+;;     ))
 
 
     
@@ -169,10 +305,10 @@
                     (list 0 0 0)))
     ((equal :top bottom-side)
      (vector-offset place-vector
-                    (list 0 0 0)))
+                    (list 0 0 (/ object-height 2))))
     ((equal :bottom bottom-side)
      (vector-offset place-vector
-                    (list 0 0 0)))
+                    (list 0 0 (/ object-height 2))))
     ((equal :front bottom-side)
      (vector-offset place-vector
                     (list 0 0 0)))
@@ -197,7 +333,8 @@
   
   (multiple-value-bind (?perceived-object)
       (perceive-object ?scan-pose ?object-typ)
-                             
+    (print ?arm)
+    (print ?grasp)
     (let* ((?current-grasp
            (grasp-object-with-handling
              ?arm
@@ -218,7 +355,8 @@
        target-pose
        ?arm
        ?current-grasp
-       ))))
+       )))
+      )
 ))
 
 
@@ -276,12 +414,13 @@
   (<- (opposite :left :right))
   (<- (opposite :front :back))
 
-  (<- (axis :front z))
-  (<- (axis :back -z))
-  (<- (axis :right x))
-  (<- (axis :left -x))
-  (<- (axis :top -y))
-  (<- (axis :bottom y))
+  (<- (axis :front x))
+  (<- (axis :back -x))
+  (<- (axis :right -y))
+  (<- (axis :left y))
+  (<- (axis :top -z))
+  (<- (axis :bottom z))
+
 
   (<- (productype-to-gtin :snackbar "8718951045118"))
   (<- (productype-to-gtin :small-cube "4062300020719"))
@@ -300,7 +439,7 @@
 
 (define-condition high-level-place-failure (cpl:simple-plan-failure)
   ((description :initarg :description
-                :initform "Failed to place the object"
+                :initform "Failed to place the object and failed to adjust to that fail"
                 :reader error-description))
   (:documentation "Failure thrown by high level place function")
   (:report (lambda (condition stream)
@@ -309,8 +448,12 @@
 
 (define-condition high-level-grasp-failure (cpl:simple-plan-failure)
   ((description :initarg :description
-                :initform "Failed to grasp the object"
+                :initform "Failed to grasp the object and failed to adjust to that fail"
                 :reader error-description))
   (:documentation "Failure thrown by high level grasp function")
   (:report (lambda (condition stream)
              (format stream (error-description condition)))))
+
+
+
+

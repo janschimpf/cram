@@ -1,15 +1,6 @@
 (in-package :cashier)
 
-;; =============== Transform + Logic for which sides to check =====
-
-
-(defun transforms-map-T-side (object-name side-poses)
-  (mapcar (lambda (x)
-            (let* ((map-T-object (cl-transforms:pose->transform (btr:object-pose object-name)))
-                   (object-T-side (cl-transforms:pose->transform (first (cdr x))))
-                   (map-T-side  (cl-transforms:transform* map-T-object object-T-side)))
-    (list (car x) (cl-transforms:transform->pose map-T-side))))
-          side-poses))
+;; =============== Logic for which sides to check =====
 
 (defun sides-to-check (sides-base non-scanable non-graspable ?potential-goal)
 
@@ -23,7 +14,6 @@
          (goal-side (if (member ?potential-goal updated-sides :test #'equal)
                         (list ?potential-goal)
                         (list nil))))
-    ;; (print updated-sides)
 
     (setf *sides-log* (append (list (list "goal" goal-side)) *sides-log*))
     
@@ -257,8 +247,9 @@
     (or (and (desig-prop ?current-desig (:goal-side ?goal))
              (not (equal nil)))
         (lisp-fun unknown-goal ?goal-side))
-
-    (lisp-fun transforms-map-T-side ?name ?b-sides ?sides-transformed)
+    
+    (lisp-fun man-int:get-object-transform ?object-designator ?transform)
+    (lisp-fun transform-b-sides-t-x ?b-sides ?transform ?sides-transformed)
     (lisp-fun sides-to-check ?sides-transformed ?n-scan ?n-grasp ?goal ?sides-to-check)
 
     (desig:designator :action ((:type :scanning)
@@ -312,8 +303,8 @@
     (desig-prop ?action-designator (:object-vector ?object-vector))
     (desig-prop ?action-designator (:sides-transformed ?sides-transformed))
 
-
-    (lisp-fun locate-sides ?sides-transformed ?object-vector ?located-sides)
+    
+    (lisp-fun side-location ?object-designator ?b-sides ?located-sides)
     (lisp-fun side-changes ?located-sides ?n-grasp ?side-changes)
     (lisp-fun path-plan-next-side ?side-changes ?n-scan ?n-grasp ?goal ?plan)
 
@@ -333,7 +324,7 @@
 
 
 (defun area->pose-stamped-list (?search-area distance-between-spots)
-  ;;first pose is the starting place and gives the orientation of all other sports
+  ;;first pose is the starting place and gives the orientation of all other spots
   ;;second pose gives the overall distance and how the offset vectors should be orientated.
   
   (let* ((pose-1 (first ?search-area))

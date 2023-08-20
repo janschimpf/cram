@@ -62,26 +62,25 @@
   (let* ((?perceived-object (perceive-object (first ?search-poses) ?object-type))
          (?object-name (desig:desig-prop-value ?perceived-object :name))
          (?base-sides (set-sides-helper ?object-name ?object-size))
-         (?sides-transformed (transforms-map-t-side ?object-name ?base-sides))
          (?object-pose (man-int:get-object-pose-in-map ?perceived-object))
-         (?grasp (which-sides-can-be-grasped
-                  (locate-sides ?sides-transformed
-                                (cram-tf:3d-vector->list (cl-tf2:origin ?object-pose)))
+         (?grasp (which-sides-can-be-grasped (side-location ?perceived-object ?base-sides)
                   ?non-graspable))
          (?orientation (cl-tf2:orientation ?object-pose)))
     
-    (pick-place-object  ?grasp ?arm
-                        ?perceived-object
-                        ?orientation ?scan-pose))
+    
+     (pick-place-object  ?grasp ?arm
+                         ?perceived-object
+                         ?orientation ?scan-pose (first ?search-poses)))
 
-  (print "aligning the object")  
-  (let* ((?perceived-object (perceive-object ?scan-pose ?object-type))
-         (?object-name (desig:desig-prop-value ?perceived-object :name))
-         (?base-sides (set-sides-helper ?object-name ?object-size)))
+  ;; (print "aligning the object")  
+  ;; (let* ((?perceived-object (perceive-object ?scan-pose ?object-type))
+  ;;        (?object-name (desig:desig-prop-value ?perceived-object :name))
+  ;;        (?base-sides (set-sides-helper ?object-name ?object-size)))
       
-    (pick-place-align-object ?object-name ?base-sides
-                              ?arm ?non-graspable
-                              ?perceived-object ?scan-pose))
+  ;;   ;; (pick-place-align-object ?object-name ?base-sides
+  ;;   ;;                           ?arm ?non-graspable
+  ;;   ;;                           ?perceived-object ?scan-pose)
+  ;;   )
 
 
   (let* ((?perceived-object (perceive-object ?scan-pose ?object-type))
@@ -99,12 +98,9 @@
     (let* ((?perceived-object-after-scan (perceive-object ?scan-pose ?object-type))
            (?object-name (desig:desig-prop-value ?perceived-object-after-scan :name))
            (?base-sides (set-sides-helper ?object-name ?object-size))
-           (?sides-transformed (transforms-map-t-side ?object-name ?base-sides))
            (?object-pose-after-scan (man-int:get-object-pose-in-map ?perceived-object-after-scan))
            (?grasp (which-sides-can-be-grasped
-                   (locate-sides ?sides-transformed
-                                 (cram-tf:3d-vector->list (cl-tf2:origin
-                                                           ?object-pose-after-scan)))
+                    (side-location ?perceived-object ?base-sides)
                  ?non-graspable))
            (?orientation (cl-tf2:orientation ?object-pose-after-scan))
            (?place-pose (if ?scan-state
@@ -116,10 +112,10 @@
        ?arm
        ?perceived-object-after-scan
        ?orientation
-       ?place-pose))
+       ?place-pose
+       ?scan-pose))
     
-    ?scan-state
-    )
+    ?scan-state)
   )
 
 
@@ -141,13 +137,23 @@
    new-orientation)))
 
 (defun pick-place-object (?grasp ?arm ?perceived-object
-                          ?object-orientation ?place-pose)
+                          ?object-orientation ?place-pose ?search-pose)
+  
+  (let* ((?look-pose (cl-tf2:make-pose-stamped
+                      "map" 0
+                     (cl-tf2:origin (man-int:get-object-pose-in-map ?perceived-object))
+                     (cl-tf2:orientation ?search-pose))))
+  (move (desig:reference
+         (desig:a location (locate ?look-pose) (arm (first ?arm))))))
+        
 
-  (let* ((?current-grasp
+  (let* ((?perceived-object-2
+         (perceive-object ?search-pose (desig:desig-prop-value ?perceived-object :type)))
+         (?current-grasp
            (grasp-object-with-handling
             ?arm
             ?grasp
-            ?perceived-object)))
+            ?perceived-object-2)))
     
 
   (let* ((?orientation-of-old-pose (cram-tf:orientation (cram-tf:robot-current-pose)))
@@ -157,14 +163,24 @@
          (?place-pose-origin (cl-tf2:origin ?place-pose)))
     
     (move ?new-position)
-  
+    
+    (cpl:with-retry-counters ((place-retry 3))
+    (cpl:with-failure-handling
+        ((common-fail:manipulation-low-level-failure (e)
+           (roslisp:ros-warn (cashier-demo) "failure happened: ~a~% changing grasp" e)
+           (cpl:do-retry place-retry
+             (move (desig:reference
+                        (desig:a location (locate ?place-pose) (arm (first ?arm)))))
+           (cpl:retry))
+           (cpl:fail 'high-level-grasp-failure)))
+      
     (place-object-with-handling
      (place-after-scan ?place-pose-origin
                        ?object-orientation
                        ?orientation-of-old-pose
                        ?orientation-of-new-pose)
      ?arm
-     ?current-grasp)
+     ?current-grasp)))
 )))
 
 ;; ========== algin object rotation with robot ===================
@@ -207,6 +223,7 @@
 
 (defun angle-direction (robot-base right-side left-side angle)
   (print "angle-direction")
+  
   (let* ((right-side-mangnitude (3d-vector-magnitude
                                  (points-to-3d-vector robot-base right-side)))
          (left-side-magnitude (3d-vector-magnitude
@@ -214,7 +231,8 @@
     (if (>= right-side-mangnitude left-side-magnitude)
         angle
         (- 0 angle))
-    ))
+    )
+  )
 
     
 (defun align-object (object-name sides-base object-location)
@@ -253,16 +271,14 @@
                                                    left-side-location
                                                    angle))
          
-         (rotation (list 0 correct-angle-direction 0))
-         
-         (axis-found (finding-axis located rotation)))
+         (rotation (list 0 correct-angle-direction 0)))
     
     (cl-tf2:q*
             (cl-tf2:orientation (btr:object-pose object-name))
             (cl-tf2:euler->quaternion
-             :ax (first axis-found)
-             :ay (second axis-found)
-             :az (third axis-found)))))
+             :ax 0
+             :ay 0
+             :az correct-angle-direction))))
 
 (defun pick-place-align-object (object-name ?base-sides
                                  arm non-graspable
@@ -314,6 +330,8 @@
                       (opposite-short (second located-sides)) ;; left
                       )) 
          (non-graspable-removed (mass-filter sides-list non-graspable-sides)))
+    (print "sides to be grasped ==============")
+    (print sides-list)
 
     (print non-graspable-removed)
     non-graspable-removed 

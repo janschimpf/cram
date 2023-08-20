@@ -7,29 +7,6 @@
    (cl-transforms:make-3d-vector -2 1.2 0.7)
    (cl-transforms:make-quaternion 0 0 0 1)))
 
-;;Sets the sides that are needed for scanning and object handling
-(defun set-sides (object-name object-x-size object-y-size object-z-size)
-  (let ((object-rotation (cl-tf2:orientation
-                          (cram-tf::pose-stamped->pose (btr:object-pose object-name))))
-       (side-list (list
-                   (list :top (cl-transforms:make-3d-vector 0 0 object-z-size))
-                   (list :bottom (cl-transforms:make-3d-vector 0 0 0))
-                   (list :left (cl-transforms:make-3d-vector 0 object-y-size 0))
-                   (list :right (cl-transforms:make-3d-vector 0 (- 0 object-y-size ) 0))
-                   (list :front (cl-transforms:make-3d-vector object-x-size 0 0 ))
-                   (list :back (cl-transforms:make-3d-vector (- 0 object-x-size ) 0 0)))))
-    (let ((side (mapcar (lambda (x) (list (first x) (cl-tf:make-pose
-                         (second x)
-                         object-rotation)))
-                        side-list)))
-      side)))
-
-(defun set-sides-helper (object-name object-size-list)
-  (set-sides object-name
-             (first object-size-list)
-             (second object-size-list)
-             (third object-size-list)))
-
 (defun scan (?perceived-object b-sides)
   (let* ((scan-area-origin (cl-tf2:origin *scan-area*))
          (pose-in-map (man-int:get-object-pose-in-map ?perceived-object))
@@ -42,7 +19,7 @@
     
     (spawn-highlight-box *scan-area* (list 0.05 0.05 0.03))
     
-    (if (and (side-check object-vector sides-in-map object-name)
+    (if (and (side-check ?perceived-object b-sides sides-in-map object-name)
              (x-y-z-pose-check scan-area-origin object-vector))
         (setf scanned t))
     
@@ -63,10 +40,10 @@
          (object-y (second object-vector))
           (object-z (third object-vector)))
     (print "x-y-z-pose check")
-    (if (and (< (- scan-x 0.1) object-x)
-             (< object-x  (+ scan-x 0.10))
-             (< (- scan-y 0.1) object-y)
-             (< object-y  (+ scan-y 0.1))
+    (if (and (< (- scan-x 0.2) object-x)
+             (< object-x  (+ scan-x 0.2))
+             (< (- scan-y 0.2) object-y)
+             (< object-y  (+ scan-y 0.2))
              (< (- scan-z 0.05) object-z)
              (< object-z (+ scan-z 0.05)))
         t
@@ -75,19 +52,18 @@
   )
 
 
-(defun side-check (object-vector side-list object-name)
-  (let* ((bottom-side (car (locate-sides side-list object-vector)))
+(defun side-check (perceived-object b-sides side-list object-name)
+  (let* ((bottom-side (car (side-location perceived-object b-sides)))
          (goal-tuple (list object-name bottom-side))
          (path-name (concatenate 'string 
                                  (format nil "~a" goal-tuple))))
     
-    (setf *sides-log* (append (list goal-tuple) *sides-log*))
+    (setf *sides-log* (append (list goal-tuple *goal-list*) *sides-log*))
+
     (spawn-side-visualisation side-list path-name)
-    
-    (if (member goal-tuple *goal-list* :test #'equal)
+    (if (member 'goal-tuple *goal-list* :test #'equal)
             t
-            nil
-  )))
+            nil)))
 
 
 (defun distances-for-side-list (side-list scan-vector)
