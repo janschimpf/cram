@@ -257,23 +257,21 @@
                            (:type ?object-type)
                            (:size ?object-size)
                            (:non-scanable ?non-scanable)
-                           (:non-graspable ?non-graspable))))
-
-    (if (exe:perform (desig:an action
+                           (:non-graspable ?non-graspable)))
+    (cashier (exe:perform (desig:an action
                            (:type cashier)
                            (:arm ?arms)
                            (:goal-side ?goal-side)
                            (:search-area ?search-area)
                            (:scan-pose ?scan-pose)
                            (:after-poses ?after-poses)
-                           (:object ?object)))
-        
+                           (:object ?object)))))
+    (if cashier
         (setf *success-poses-list* (cdr *success-poses-list*))
         (setf *unsuccessful-poses-list* (cdr *unsuccessful-poses-list*)))
+    (print cashier)
                  )))
   ;;(btr-utils:kill-object ?object-name))))
-  (print *sides-log*)
-  (print *goal-list*)
   (setf *goal-list* nil)
   (setf *sides-log* nil))
 

@@ -222,7 +222,6 @@
     (desig-prop ?action-designator (:object ?object-designator))
     (desig:current-designator ?object-designator ?current-desig)
     (desig-prop ?current-desig (:type ?type))
-    (desig-prop ?current-desig (:name ?name))
     (desig-prop ?current-desig (:pose ?pose))
     
     (or (and (desig-prop ?current-desig (:size ?size))
@@ -254,7 +253,6 @@
 
     (desig:designator :action ((:type :scanning)
                                (:object-type ?type)
-                               (:object-name ?name)
                                (:object-size ?size)
                                (:arm ?arm)
                                (:non-scanable ?n-scan)
@@ -300,9 +298,6 @@
 
     (desig-prop ?action-designator (:arm ?arm))
     (desig-prop ?action-designator (:change-to-side ?side-goal))
-    (desig-prop ?action-designator (:object-vector ?object-vector))
-    (desig-prop ?action-designator (:sides-transformed ?sides-transformed))
-
     
     (lisp-fun side-location ?object-designator ?b-sides ?located-sides)
     (lisp-fun side-changes ?located-sides ?n-grasp ?side-changes)

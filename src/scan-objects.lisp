@@ -15,13 +15,14 @@
          (object-vector (cram-tf:3d-vector->list
                          (cl-tf2:origin pose-in-map)))
          (sides-in-map (transforms-map-t-side object-name b-sides))
+         (bottom-side (car (side-location ?perceived-object b-sides)))
          (scanned nil))
     
     (spawn-highlight-box *scan-area* (list 0.05 0.05 0.03))
     
     (if (and (side-check ?perceived-object b-sides sides-in-map object-name)
              (x-y-z-pose-check scan-area-origin object-vector))
-        (setf scanned t))
+        (setf scanned bottom-side))
     
     (if scanned
         (publish-rviz-marker (product-type-and-dan-from-gtin (prolog-scan-gtin object-type))))

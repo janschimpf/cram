@@ -5,7 +5,6 @@
 ;; then the path plan the path, execute the path, update object, scan
 (defun scan-plan (&key
                       ((:object-type ?object-type))
-                      ((:object-name ?object-name))
                       ((:arm ?arm))
                       ((:non-scanable ?non-scanable))
                       ((:non-graspable ?non-graspable))
@@ -26,13 +25,10 @@
                  ?sides-to-check
                  ?arm
                  ?non-scanable
-                 ?non-graspable)
-           
-           (type symbol
-                 ?object-name))
+                 ?non-graspable))
   
   (let* ((?sides-to-be-check ?sides-to-check)) 
-  (print "before scan start")
+  ;; before scan is started
   (cpl:with-retry-counters ((scan-counter-retries (length ?sides-to-be-check)))
     (cpl:with-failure-handling 
     ((common-fail:high-level-failure (e)
@@ -40,29 +36,22 @@
        (cpl:do-retry scan-counter-retries
          (let* ((?perceived-object (perceive-object ?scan-pose ?object-type))
                 (?sides-located (side-location ?perceived-object ?b-sides))
-                (?object-vector (cram-tf:3d-vector->list
-                                 (cl-tf2:origin
-                                  (man-int:get-object-pose-in-map ?perceived-object))))
-                (?transform (man-int:get-object-transform ?perceived-object))
+                ;; (?object-vector (cram-tf:3d-vector->list
+                ;;                  (cl-tf2:origin
+                ;;                   (man-int:get-object-pose-in-map ?perceived-object))))
+                ;; (?transform (man-int:get-object-transform ?perceived-object))
                 
-                (?sides-in-map (transform-b-sides-t-x ?b-sides ?transform)))
+                ;; (?sides-in-map (transform-b-sides-t-x ?b-sides ?transform))
+                )
            
            (setf ?sides-to-be-check (remove-element-from-list ?sides-to-be-check
                                                               (first ?sides-located)))
-           (print "high-light ?sides-to-be-checked =====================
-
-
-
-          ============================")
-           (print (first ?sides-in-map))
-           (print ?sides-to-check)
 
            (let* ((?check-side (next-side-to-check ?sides-located ?sides-to-be-check))
                   (?object (extended-object-desig ?perceived-object
                                                   ?object-size ?non-graspable
                                                   ?non-scanable ?check-side ?b-sides)))
-             (print "next side")
-
+           ;;next side
            (if (not (equal nil ?check-side))
              (exe:perform
               (desig:an action
@@ -72,19 +61,24 @@
                         (:arm ?arm)
                         (:change-to-side ?check-side)
                         (:sides-base ?b-sides)
-                        (:sides-transformed ?sides-in-map)
-                        (:object-size ?object-size)
-                        (:object-vector ?object-vector))))))
+                        (:object-size ?object-size))))))
            (cpl:retry))
        (cpl:fail 'common-fail:high-level-failure)))
       (let ((?perceived-object (perceive-object ?scan-pose ?object-type)))
-        (print "scanning")
-        (print (side-location ?perceived-object ?b-sides))
-      (if (equal nil ?sides-to-be-check)
-          nil
-          (if (not (scan ?perceived-object ?b-sides))
-              (cpl:fail 'common-fail:high-level-failure)
-              T)))))))
+        
+      ; scanning bottom side
+      (if ?sides-to-be-check
+          (let* ((scanned (scan ?perceived-object ?b-sides)))
+            (print scanned)
+            (print "====================================================================================================================================================")
+          (if scanned
+              (scanned-object-desig ?perceived-object ?b-sides
+                                    ?object-size ?non-graspable
+                                    ?non-scanable scanned)
+              (cpl:fail 'common-fail:high-level-failure)))
+            (scanned-object-desig ?perceived-object ?b-sides
+                                  ?object-size ?non-graspable
+                                  ?non-scanable nil)))))))
 
 (defun next-side-to-check (located-sides sides-to-check)
   (let* ((right (second located-sides))
@@ -106,3 +100,20 @@
         (check (list :top :back)))
     (next-side-to-check side check)
     ))
+
+(defun scanned-object-desig (?perceived-object ?b-sides ?size ?n-grasp ?n-scan ?goal)
+  (let* ((?type (desig-prop-value ?perceived-object :type))
+         (?name (desig-prop-value ?perceived-object :name))
+         (?pose (desig-prop-value ?perceived-object :pose)))
+    (print ?goal)
+    (print "giving over goal")
+  (desig:an object
+            (:type ?type)
+            (:name ?name)
+            (:pose ?pose)
+            (:base-sides ?b-sides)
+            (:size ?size)
+            (:non-graspable ?n-grasp)
+            (:non-scanable ?n-scan)
+            (:goal-side ?goal)
+  )))

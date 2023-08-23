@@ -4,7 +4,7 @@
   (list 'bottle-1 :bottle
         '((-2 2 0.75)(0 0 0 1)) ;; '(0.05 0.05 0.10)
         '(nil)
-        (list :left :right :front :back :top) (list nil) :top))
+        (list :left :right :front :top) (list :back) :top))
 
 
 (defparameter object-list-pringles
@@ -86,7 +86,7 @@
           'breakfast-cereal-1
           :breakfast-cereal
           :color '(0 1 0)
-          :pose (list (list -2 1.3 0.8) '(0 0 0 1)))
+          :pose (list (list -2.3 1.3 0.8) right))
   (btr:simulate btr:*current-bullet-world* 10)))
 
 (defun spawn-pickup-cylinder-air ()

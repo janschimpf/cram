@@ -57,35 +57,29 @@
       (let* ((?nav-pose (first ?search-poses)))
         (move (desig:reference (desig:a location (locate ?nav-pose) (arm (first ?arm)))))
         (perceive-object (first ?search-poses) ?object-type))))
+
+  (let* ((?object-name (desig:desig-prop-value
+                        (perceive-object (first ?search-poses) ?object-type) :name))
+         (?base-sides (set-sides-helper ?object-name ?object-size)))
   
   (print "bringing object to the scanner")
   (let* ((?perceived-object (perceive-object (first ?search-poses) ?object-type))
-         (?object-name (desig:desig-prop-value ?perceived-object :name))
-         (?base-sides (set-sides-helper ?object-name ?object-size))
          (?object-pose (man-int:get-object-pose-in-map ?perceived-object))
-         (?grasp (which-sides-can-be-grasped (side-location ?perceived-object ?base-sides)
-                  ?non-graspable))
          (?orientation (cl-tf2:orientation ?object-pose)))
     
-    
-     (pick-place-object  ?grasp ?arm
-                         ?perceived-object
-                         ?orientation ?scan-pose (first ?search-poses)))
+     (pick-place-object  ?non-graspable ?arm
+                         ?perceived-object ?orientation
+                         ?scan-pose (first ?search-poses) ?base-sides))
 
-  ;; (print "aligning the object")  
-  ;; (let* ((?perceived-object (perceive-object ?scan-pose ?object-type))
-  ;;        (?object-name (desig:desig-prop-value ?perceived-object :name))
-  ;;        (?base-sides (set-sides-helper ?object-name ?object-size)))
-      
-  ;;   ;; (pick-place-align-object ?object-name ?base-sides
-  ;;   ;;                           ?arm ?non-graspable
-  ;;   ;;                           ?perceived-object ?scan-pose)
-  ;;   )
+  (print "aligning the object")  
+  (let* ((?perceived-object (perceive-object ?scan-pose ?object-type)))
+
+    (pick-place-align-object ?object-name ?base-sides
+                              ?arm ?non-graspable
+                              ?perceived-object ?scan-pose))
 
 
   (let* ((?perceived-object (perceive-object ?scan-pose ?object-type))
-         (?object-name (desig:desig-prop-value ?perceived-object :name))
-         (?base-sides (set-sides-helper ?object-name ?object-size))
          (?object (extended-object-desig ?perceived-object ?object-size
                                          ?non-graspable ?non-scanable
                                          ?goal-side ?base-sides))
@@ -96,48 +90,23 @@
                              (:object ?object)))))
     
     (let* ((?perceived-object-after-scan (perceive-object ?scan-pose ?object-type))
-           (?object-name (desig:desig-prop-value ?perceived-object-after-scan :name))
-           (?base-sides (set-sides-helper ?object-name ?object-size))
            (?object-pose-after-scan (man-int:get-object-pose-in-map ?perceived-object-after-scan))
-           (?grasp (which-sides-can-be-grasped
-                    (side-location ?perceived-object-after-scan ?base-sides)
-                 ?non-graspable))
            (?orientation (cl-tf2:orientation ?object-pose-after-scan))
-           (?place-pose (if ?scan-state
+           (?scan-status (desig:desig-prop-value ?scan-state :goal-side))
+           (?place-pose (if ?scan-status
                             (first ?after-poses)
-                            (second ?after-poses))))
-    
+                            (second ?after-poses))))    
       (pick-place-object
-       ?grasp
-       ?arm
-       ?perceived-object-after-scan
-       ?orientation
-       ?place-pose
-       ?scan-pose))
-    
-    ?scan-state)
-  )
+       ?non-graspable ?arm ?perceived-object-after-scan
+       ?orientation ?place-pose ?scan-pose ?base-sides )) 
+    ?scan-state)))
 
 
 
 ;;=============  placing object after scan ================
 
-(defun place-after-scan (pose orientation q1 q2)
-  (let* ((angle-between-location-quaterions (cl-tf2:angle-between-quaternions q1 q2))
-         
-         (new-orientation (cl-tf2:q*
-                           orientation
-                           (cl-tf2:axis-angle->quaternion
-                            (cl-tf2:make-3d-vector 0 0 1)
-                            angle-between-location-quaterions))))
-        
-   (cl-transforms-stamped:make-pose-stamped
-   "map" 0.0
-   pose
-   new-orientation)))
-
-(defun pick-place-object (?grasp ?arm ?perceived-object
-                          ?object-orientation ?place-pose ?search-pose)
+(defun pick-place-object (?non-graspable ?arm ?perceived-object
+                          ?object-orientation ?place-pose ?search-pose ?base-sides)
   
   (let* ((?look-pose (cl-tf2:make-pose-stamped
                       "map" 0
@@ -148,7 +117,11 @@
         
 
   (let* ((?perceived-object-2
-         (perceive-object ?search-pose (desig:desig-prop-value ?perceived-object :type)))
+           (perceive-object ?search-pose (desig:desig-prop-value ?perceived-object :type)))
+
+         (?grasp (which-sides-can-be-grasped (side-location ?perceived-object-2 ?base-sides)
+                  ?non-graspable))
+
          (?current-grasp
            (grasp-object-with-handling
             ?arm
@@ -179,9 +152,22 @@
                        ?object-orientation
                        ?orientation-of-old-pose
                        ?orientation-of-new-pose)
-     ?arm
-     ?current-grasp)))
-)))
+     ?arm  ?current-grasp)))
+    )))
+
+(defun place-after-scan (pose orientation q1 q2)
+  (let* ((angle-between-location-quaterions (cl-tf2:angle-between-quaternions q1 q2))
+         
+         (new-orientation (cl-tf2:q*
+                           orientation
+                           (cl-tf2:axis-angle->quaternion
+                            (cl-tf2:make-3d-vector 0 0 1)
+                            angle-between-location-quaterions))))
+        
+   (cl-transforms-stamped:make-pose-stamped
+   "map" 0.0
+   pose
+   new-orientation)))
 
 ;; ========== algin object rotation with robot ===================
 (defun points-to-3d-vector (point-1 point-2)
@@ -228,26 +214,24 @@
                                  (points-to-3d-vector robot-base right-side)))
          (left-side-magnitude (3d-vector-magnitude
                                (points-to-3d-vector robot-base left-side))))
-    (if (>= right-side-mangnitude left-side-magnitude)
-        angle
-        (- 0 angle))
+    (if (<= right-side-mangnitude left-side-magnitude)
+        (- angle)
+         angle)
     )
   )
 
     
-(defun align-object (object-name sides-base object-location)
+(defun align-object (object-name base-sides object-location ?perceived-object)
   (let* ((align-point (cram-tf:3d-vector->list
                        (cl-tf2:origin (cram-tf:robot-current-pose))))          
          
-         (located (locate-sides
-           (transforms-map-t-side object-name sides-base)
-           object-location))
+         (located (side-location ?perceived-object base-sides))
          
          (front-side (third located))
          (right-side (second located))
          (left-side (opposite-short right-side))
          (transformed-map-t-side (transforms-map-t-side
-                                  object-name sides-base))
+                                  object-name base-sides))
           
          (front-side-location (cram-tf:3d-vector->list (cl-tf2:origin
                                                         (get-correct-side
@@ -288,9 +272,9 @@
          (object-vector-list (cram-tf:3d-vector->list
                               (cl-tf2:origin object-pose-in-map)))
          (transformed (transforms-map-t-side object-name ?base-sides))
-         (located (locate-sides transformed object-vector-list))
-         (grasp (which-sides-can-be-grasped located non-graspable))
-         (align (align-object object-name ?base-sides object-vector-list)))
+         (grasp (which-sides-can-be-grasped (side-location ?perceived-object ?base-sides)
+                                            non-graspable))
+         (align (align-object object-name ?base-sides object-vector-list ?perceived-object)))
 
         (spawn-side-visualisation transformed "pre-alignment")      
     

@@ -17,17 +17,17 @@
   (loop for move in (remove nil ?plan)
         do
            (print move)
-           (let* ((object-vector (cram-tf:3d-vector->list
-                                  (cl-tf2:origin (btr:object-pose ?object-name))))
+           (let* (;; (object-vector (cram-tf:3d-vector->list
+                  ;;                 (cl-tf2:origin (btr:object-pose ?object-name))))
                   
                   (3d-list (vector-change
                             (cram-tf:3d-vector->list (cl-tf2:origin ?scan-pose))
                              ?side-goal
                              ?object-size))
                   (perceived-object (perceive-object ?scan-pose ?object-type))
-                  (transformed (transform-b-sides-t-x ?b-sides 
-                                                                (man-int:get-object-transform
-                                                                perceived-object)))
+                  ;; (transformed (transform-b-sides-t-x ?b-sides 
+                  ;;                                               (man-int:get-object-transform
+                  ;;                                               perceived-object)))
                   
                   (located-sides (side-location perceived-object ?b-sides))
                   
@@ -37,13 +37,7 @@
                                     orientation-change
                                     (cram-tf:robot-current-transform)))
                   (?grasp (which-sides located-sides move)))
-
-             (print "============================================")
-             (print "SHOW ME WHICH SIDES YOU WANT TO GRASP DAMNED")
-             (print "============================================")
-             (print ?grasp)
-             (print orientation-change)
-             (print new-orientation)
+   
              (setf *sides-log* (append (list ?grasp (list move) located-sides) *sides-log*))
              (let ((target
                      (place-pose-stability-adjustment
@@ -51,13 +45,10 @@
                       new-orientation
                       ?object-type
                       ?object-name
-                      0
-                      )))
+                      0)))
                
                (print target)
-               (execute-change-side ?object-type ?arm ?grasp target ?scan-pose)              
-               )
-             )))
+               (execute-change-side ?object-type ?arm ?grasp target ?scan-pose)))))
 
 (defun helper-function (pose orientation transform)
   (let* ((origin (cl-tf2:origin pose))
@@ -67,12 +58,7 @@
                            orientation))
          (new-pose (cl-transforms-stamped:transform transform
                                                     (cl-tf2:make-pose origin new-orientation))))
-    ;; (print "pose and new orientation")
-    ;; (print orientation)
-    ;; (print pose-orientation)
-    ;; (print new-orientation)
-    (cl-tf2:orientation new-pose)
-      ))
+    (cl-tf2:orientation new-pose)))
 
 ;;; ===== pose changes for placing the object with a different orientation / side ======
 
@@ -192,10 +178,17 @@
              ((string-equal "flip" move)
               pi)
              (t (print move))))
-         (result (if (or (string-equal "front-turn" move)
-                         (string-equal "back-turn" move))
-                     (finding-axis-front/back located-sides turn move)
-                     (finding-axis-rest located-sides turn move))))
+         (result (or (if (or (string-equal "front-turn" move)
+                             (string-equal "back-turn" move))
+                         (finding-axis-front/back located-sides turn move))
+                     (if (or (string-equal "left-turn" move)
+                             (string-equal "right-turn" move)
+                             (string-equal "flip" move))
+                         (finding-axis-left/right located-sides turn move))
+                     (if (or (string-equal "left-rotation" move)
+                             (string-equal "right-roation" move))
+                         (finding-axis-left/right-rotation located-sides turn move)))))
+                 
     (cl-tf:euler->quaternion
      :ax (first result)
      :ay (second result)
@@ -207,15 +200,11 @@
          (axis-front (axis-short (third located-sides)))
          (axis-list (list axis-front axis-right axis-bottom)))
     
-    (print "====================== axis-list-with turn")
-    (print axis-list)
-    (print located-sides)
-
     (mapcar (lambda (x) (matching-axis-with-turn x move turn))
             axis-list)))
 
 
-(defun finding-axis-rest (located-sides turn move)
+(defun finding-axis-left/right (located-sides turn move)
   (let* ((axis-bottom (axis-short (first located-sides)))
          (axis-right (axis-short (second located-sides)))
          (axis-front (axis-short (third located-sides)))
@@ -231,13 +220,26 @@
                        ((or (string-equal "Y" axis-front)
                            (string-equal "-Y" axis-front))
                            (list 0 turn-direction 0))))
-
          (axis-list (list axis-bottom axis-right axis-front)))
-    
-    (print "====================== axis-list-with turn")
-    (print axis-list)
-    (print located-sides)
-    (print result)
+    result))
+
+(defun finding-axis-left/right-rotation (located-sides turn move)
+    (let* ((axis-bottom (axis-short (first located-sides)))
+         (axis-right (axis-short (second located-sides)))
+         (axis-front (axis-short (third located-sides)))
+         (turn-direction (car (remove nil (list (axis-correction axis-bottom turn)
+                                                (axis-correction axis-right turn)
+                                                (axis-correction axis-front turn)))))
+         (result (cond ((or (string-equal "Z" axis-bottom)
+                            (string-equal "-Z" axis-bottom))
+                        (list turn-direction 0 0))
+                       ((or (string-equal "Z" axis-right)
+                            (string-equal "-Z" axis-right))
+                        (list turn-direction 0 0))
+                       ((or (string-equal "Z" axis-front)
+                           (string-equal "-Z" axis-front))
+                           (list 0 turn-direction 0))))
+         (axis-list (list axis-bottom axis-right axis-front)))
     result))
 
 ;; located list is bottom right front

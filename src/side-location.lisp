@@ -81,10 +81,10 @@
 ;;==================Test-setup ======================
 (defun Test-setup ()
   
-  (spawn-bottle)
+  (spawn-breakfast)
   (urdf-proj:with-simulated-robot
 
-    (let*((?loc *place-position*)
+    (let*((?loc *place-position-other-side*)
         (?arm (list :left)))
         
     (move (desig:reference (desig:a location (locate ?loc) (arm ?arm))))
