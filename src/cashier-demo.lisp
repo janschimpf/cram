@@ -1,4 +1,5 @@
 (in-package :cashier)
+;;@author Jan Schimpf
 
 (defparameter *look-nav-pose*
   (cl-transforms-stamped:make-pose-stamped
@@ -45,7 +46,7 @@
   (cl-transforms-stamped:make-pose-stamped
    "map"
    0.0
-   (cl-transforms:make-3d-vector -2 1.2 0.75)
+   (cl-transforms:make-3d-vector -2 1.2 0.68)
    (cl-transforms:euler->quaternion :ax 0 :ay 0 :az 0)))
 
 
@@ -53,7 +54,7 @@
   (cl-transforms-stamped:make-pose-stamped
    "map"
    0.0
-   (cl-transforms:make-3d-vector -2.2 1.2 0.75)
+   (cl-transforms:make-3d-vector -2.1 1.2 0.68)
    (cl-transforms:euler->quaternion :ax 0 :ay 0 :az pi)))
 
 
@@ -71,36 +72,36 @@
    (cl-transforms:euler->quaternion :ax 0 :ay 0 :az 0)))
 
 (defparameter *place-pose*
-   (list -2 1.2 0.75))
+   (list -2 1.2 0.68))
 
 (defparameter spawn-pose-1
-  (list -2 2 0.85))
+  (list -2 2 0.75))
 
 (defparameter spawn-pose-2
-  (list  -2 2.15 0.85))
+  (list  -2 2.15 0.75))
 
 (defparameter success-point-1
    (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
-   (cl-transforms:make-3d-vector -2 0.8 0.75)
+   (cl-transforms:make-3d-vector -2 0.8 0.68)
    (cl-transforms:euler->quaternion :ax 0 :ay 0 :az 0)))
 
 (defparameter success-point-2
   (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
-   (cl-transforms:make-3d-vector -2 0.4 0.75)
+   (cl-transforms:make-3d-vector -2 0.4 0.68)
    (cl-transforms:euler->quaternion :ax 0 :ay 0 :az (* 1.5 pi))))
 
 (defparameter unsuccessful-point-1
   (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
-   (cl-transforms:make-3d-vector -2 0.2 0.75)
+   (cl-transforms:make-3d-vector -2 0.2 0.68)
    (cl-transforms:euler->quaternion :ax 0 :ay 0 :az 0)))
 
 (defparameter unsuccesful-point-2
   (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
-   (cl-transforms:make-3d-vector -2 -0.3 0.75)
+   (cl-transforms:make-3d-vector -2 -0.3 0.68)
    (cl-transforms:euler->quaternion :ax 0 :ay 0 :az (* 1.5 pi))))
 
 (defparameter *success-poses-list* nil)
@@ -168,6 +169,7 @@
   (if (equal (first ?arm) :left)
       (grasp-object ?arm ?perceived-object :?left-grasp (car ?grasp-list))
       (grasp-object ?arm ?perceived-object :?right-grasp (car ?grasp-list)))
+      (print (car ?grasp-list))
       (car ?grasp-list)
       )))
 
@@ -193,8 +195,7 @@
   (if (equal ?arm '(:left))
       (place-object ?target-pose ?arm :?left-grasp ?grasp)
       (place-object ?target-pose ?arm :?right-grasp ?grasp))
-  (setf *current-grasp* nil)
-  )
+  (setf *current-grasp* nil))
 
 (defun place-object (?target-pose
                      ?arm
@@ -228,9 +229,10 @@
            (spawn-object-on-counter-general object (car spawn-poses))
                                                             
            (setf spawn-poses (cddr spawn-poses))
-           (setf *goal-list* (append (list (list (first object) (car (last object)))) *goal-list*))
+           (setf *goal-list* (append (list (list (first object)
+                                                 (car (last object))))
+                                     *goal-list*))
         ))
-    
   (setf *success-poses-list* (area->pose-stamped-list
                              (list success-point-1 success-point-2)
                                                   0.2))
@@ -258,7 +260,7 @@
                            (:size ?object-size)
                            (:non-scanable ?non-scanable)
                            (:non-graspable ?non-graspable)))
-    (cashier (exe:perform (desig:an action
+         (cashier (exe:perform (desig:an action
                            (:type cashier)
                            (:arm ?arms)
                            (:goal-side ?goal-side)
@@ -269,9 +271,7 @@
     (if cashier
         (setf *success-poses-list* (cdr *success-poses-list*))
         (setf *unsuccessful-poses-list* (cdr *unsuccessful-poses-list*)))
-    (print cashier)
-                 )))
-  ;;(btr-utils:kill-object ?object-name))))
+    (print cashier))))
   (setf *goal-list* nil)
   (setf *sides-log* nil))
 

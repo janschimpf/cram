@@ -55,8 +55,4 @@
   <!-- PR2 IK solver -->
   <include file="$(find pr2_arm_kinematics)/launch/pr2_ik_larm_node.launch" />
   <include file="$(find pr2_arm_kinematics)/launch/pr2_ik_rarm_node.launch" />
-      
-  <include file="$(find knowrob)/src/knowrob_stocktaking/launch/knowrob_stocktaking.launch">
-    <arg name="upload" value="false"/>
-  </include>
 </launch>

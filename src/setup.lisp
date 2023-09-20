@@ -1,5 +1,5 @@
 (in-package :cashier)
-
+;;@author Jan Schimpf
 
 (defun init-projection ()
   (coe:clear-belief)

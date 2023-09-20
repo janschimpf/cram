@@ -1,4 +1,6 @@
 (in-package :cashier)
+;;@author Jan Schimpf
+
 (defparameter counter 0)
 ;; iterates over the to scan sides.
 ;; first gets the current bottom side, front side and right side
@@ -27,50 +29,39 @@
                  ?non-scanable
                  ?non-graspable))
   
-  (let* ((?sides-to-be-check ?sides-to-check)) 
   ;; before scan is started
-  (cpl:with-retry-counters ((scan-counter-retries (length ?sides-to-be-check)))
+  (cpl:with-retry-counters ((scan-retries (length ?sides-to-check)))
     (cpl:with-failure-handling 
     ((common-fail:high-level-failure (e)
        (roslisp:ros-warn (cashier-demo) "Falure happend: ~a~% adjusting side to be scanned" e)
-       (cpl:do-retry scan-counter-retries
+       (cpl:do-retry scan-retries
          (let* ((?perceived-object (perceive-object ?scan-pose ?object-type))
-                (?sides-located (side-location ?perceived-object ?b-sides))
-                ;; (?object-vector (cram-tf:3d-vector->list
-                ;;                  (cl-tf2:origin
-                ;;                   (man-int:get-object-pose-in-map ?perceived-object))))
-                ;; (?transform (man-int:get-object-transform ?perceived-object))
-                
-                ;; (?sides-in-map (transform-b-sides-t-x ?b-sides ?transform))
-                )
+                (?sides-located (side-location ?perceived-object ?b-sides)))
            
-           (setf ?sides-to-be-check (remove-element-from-list ?sides-to-be-check
-                                                              (first ?sides-located)))
+           (setf ?sides-to-check (remove-element-from-list ?sides-to-check
+                                                           (first ?sides-located)))
 
-           (let* ((?check-side (next-side-to-check ?sides-located ?sides-to-be-check))
-                  (?object (extended-object-desig ?perceived-object
-                                                  ?object-size ?non-graspable
-                                                  ?non-scanable ?check-side ?b-sides)))
+           (let* ((?check-side (next-side-to-check ?sides-located ?sides-to-check)))
            ;;next side
-           (if (not (equal nil ?check-side))
+           (if ?check-side
              (exe:perform
               (desig:an action
                         (:type :changing-side)
-                        (:object ?object)
+                        (:object ?perceived-object)
+                        (:object-type ?object-type)
                         (:scan-pose ?scan-pose)
                         (:arm ?arm)
-                        (:change-to-side ?check-side)
-                        (:sides-base ?b-sides)
-                        (:object-size ?object-size))))))
+                        (:base-sides ?b-sides)
+                        (:object-size ?object-size)
+                        (:non-scanable ?non-scanable)
+                        (:non-graspable ?non-graspable)
+                        (:change-to-side ?check-side))))))
            (cpl:retry))
        (cpl:fail 'common-fail:high-level-failure)))
-      (let ((?perceived-object (perceive-object ?scan-pose ?object-type)))
-        
-      ; scanning bottom side
-      (if ?sides-to-be-check
-          (let* ((scanned (scan ?perceived-object ?b-sides)))
-            (print scanned)
-            (print "====================================================================================================================================================")
+      (let ((?perceived-object (perceive-object ?scan-pose ?object-type)))  
+      ;; scanning bottom side
+      (if ?sides-to-check
+          (let* ((scanned (scan ?perceived-object ?b-sides)))  
           (if scanned
               (scanned-object-desig ?perceived-object ?b-sides
                                     ?object-size ?non-graspable
@@ -78,7 +69,7 @@
               (cpl:fail 'common-fail:high-level-failure)))
             (scanned-object-desig ?perceived-object ?b-sides
                                   ?object-size ?non-graspable
-                                  ?non-scanable nil)))))))
+                                  ?non-scanable nil))))))
 
 (defun next-side-to-check (located-sides sides-to-check)
   (let* ((right (second located-sides))
@@ -87,7 +78,6 @@
          (front (third located-sides))
          (back (opposite-short (third located-sides)))
          (side-list (list right left front back top)))
-    (print side-list)
     ;; check list if element(s) are part of sides-to-check
     ;; first element that is in the side-to-check list is the one we target next
     (loop for x in side-list

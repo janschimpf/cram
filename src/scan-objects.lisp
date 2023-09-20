@@ -1,67 +1,74 @@
 (in-package :cashier)
+;;@author Jan Schimpf
+
+
 (defparameter *goal-list* '(nil))
 (defparameter *sides-log* '(nil))
+(defparameter *knowledge-node* nil)
 (defparameter *scan-area*
   (cl-transforms-stamped:make-pose-stamped
    "map" 0.0
-   (cl-transforms:make-3d-vector -2 1.2 0.7)
+   (cl-transforms:make-3d-vector -2 1.4 0.7)
    (cl-transforms:make-quaternion 0 0 0 1)))
 
 (defun scan (?perceived-object b-sides)
   (let* ((scan-area-origin (cl-tf2:origin *scan-area*))
          (pose-in-map (man-int:get-object-pose-in-map ?perceived-object))
-         (object-name (desig-prop-value ?perceived-object :name))
          (object-type (desig-prop-value ?perceived-object :type))
          (object-vector (cram-tf:3d-vector->list
                          (cl-tf2:origin pose-in-map)))
-         (sides-in-map (transforms-map-t-side object-name b-sides))
+         (sides-in-map (transforms-map-t-side pose-in-map b-sides))
+         (transformed-map-t-side (transforms-map-t-side
+                                  (man-int:get-object-pose-in-map ?perceived-object)
+                                   b-sides))
          (bottom-side (car (side-location ?perceived-object b-sides)))
+         (bottom-side-location (cram-tf:3d-vector->list (cl-tf2:origin
+                                                        (get-correct-side
+                                                         transformed-map-t-side
+                                                         bottom-side))))
          (scanned nil))
     
-    (spawn-highlight-box *scan-area* (list 0.05 0.05 0.03))
     
-    (if (and (side-check ?perceived-object b-sides sides-in-map object-name)
-             (x-y-z-pose-check scan-area-origin object-vector))
+    (if (and (side-check ?perceived-object b-sides)
+             (x-y-z-pose-check scan-area-origin bottom-side-location))
         (setf scanned bottom-side))
     
-    (if scanned
-        (publish-rviz-marker (product-type-and-dan-from-gtin (prolog-scan-gtin object-type))))
-    
-    (btr-utils:kill-object 'box-1)
-    scanned
-    ))
+    (if (and scanned *knowledge-node*)
+        (setf scanned (append (product-type-and-dan-from-gtin (prolog-scan-gtin object-type)) scanned)))
 
+    (spawn-highlight-box *scan-area*
+                         (list 0.05 0.05 0.05)
+                         (if scanned
+                             '(0 1 0)
+                             '(1 0 0)))
+    
+    (spawn-side-visualisation sides-in-map (concatenate 'string (format nil "~a" (list object-type bottom-side))))
+    (btr-utils:kill-object 'box-1)
+    scanned))
 
 (defun x-y-z-pose-check (scan-area-vector object-vector)
-
   (let*  ((scan-x (cl-tf2:x scan-area-vector))
          (scan-y (cl-tf2:y scan-area-vector))
          (scan-z (cl-tf2:z scan-area-vector))
          (object-x (first object-vector))
          (object-y (second object-vector))
           (object-z (third object-vector)))
-    (print "x-y-z-pose check")
-    (if (and (< (- scan-x 0.2) object-x)
-             (< object-x  (+ scan-x 0.2))
-             (< (- scan-y 0.2) object-y)
-             (< object-y  (+ scan-y 0.2))
+
+    (if (and (< (- scan-x 0.06) object-x)
+             (< object-x  (+ scan-x 0.06))
+             (< (- scan-y 0.06) object-y)
+             (< object-y  (+ scan-y 0.06))
              (< (- scan-z 0.05) object-z)
              (< object-z (+ scan-z 0.05)))
         t
-        nil
-        )) 
-  )
+        nil)))
 
 
-(defun side-check (perceived-object b-sides side-list object-name)
+(defun side-check (perceived-object b-sides)
   (let* ((bottom-side (car (side-location perceived-object b-sides)))
-         (goal-tuple (list object-name bottom-side))
-         (path-name (concatenate 'string 
-                                 (format nil "~a" goal-tuple))))
-    
+         (object-name (desig-prop-value perceived-object :name))
+         (goal-tuple (list object-name bottom-side)))
     (setf *sides-log* (append (list goal-tuple *goal-list*) *sides-log*))
-
-    (spawn-side-visualisation side-list path-name)
     (if (member goal-tuple *goal-list* :test #'equal)
             t
             nil)))

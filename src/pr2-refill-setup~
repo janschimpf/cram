@@ -1,0 +1,52 @@
+(in-package :cashier)
+
+
+(defparameter *place-position-refill*
+  (cl-transforms-stamped:make-pose-stamped
+   "map"
+   0.0
+   (cl-transforms:make-3d-vector -2 1.2 0.68)
+   (cl-transforms:euler->quaternion :ax 0 :ay 0 :az 0)))
+   
+   
+(defparameter success-point-1-refill
+   (cl-transforms-stamped:make-pose-stamped
+   "map" 0.0
+   (cl-transforms:make-3d-vector -2 0.8 0.68)
+   (cl-transforms:euler->quaternion :ax 0 :ay 0 :az 0)))
+
+(defparameter success-point-2-refill
+  (cl-transforms-stamped:make-pose-stamped
+   "map" 0.0
+   (cl-transforms:make-3d-vector -2 0.4 0.68)
+   (cl-transforms:euler->quaternion :ax 0 :ay 0 :az (* 1.5 pi))))
+
+(defparameter unsuccessful-point-1-refill
+  (cl-transforms-stamped:make-pose-stamped
+   "map" 0.0
+   (cl-transforms:make-3d-vector -2 0.2 0.68)
+   (cl-transforms:euler->quaternion :ax 0 :ay 0 :az 0)))
+
+(defparameter unsuccesful-point-2-refill
+  (cl-transforms-stamped:make-pose-stamped
+   "map" 0.0
+   (cl-transforms:make-3d-vector -2 -0.3 0.68)
+   (cl-transforms:euler->quaternion :ax 0 :ay 0 :az (* 1.5 pi))))
+   
+   
+(defparameter breakfast-cereal-1
+  (list 'breakfast-cereal-1 :breakfast-cereal
+        '((-2 2 0.75) (0 0 0 1))
+        '(0.08 0.03 0.12)
+        (list :right :left) (list nil) :back))
+        
+
+(defparameter breakfast-cereal-2
+  (list 'breakfast-cereal-2 :breakfast-cereal
+        '((-2 2 0.75) (0 0 0 1))
+        '(0.08 0.03 0.12)
+        (list :right :left) (list nil) :back))
+          
+(defparameter spawn-list (list object-list-bottle
+                                       breakfast-cereal-1
+                                       breakfast-cearal-2))
